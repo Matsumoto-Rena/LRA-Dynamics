@@ -1,0 +1,57 @@
+#include <avr/io.h>
+
+#define PWMPin 10
+int D1 = 2;
+int D2 = 3;
+
+unsigned int frq = 170; // 周波数
+float duty = 0.5; // 指定したいデューティ比
+
+void setup() {
+  pinMode(PWMPin, OUTPUT);
+  pinMode(D1, HIGH);
+  pinMode(D2, HIGH);
+  // モード指定
+  TCCR1A = 0b00100001;
+  TCCR1B = 0b00010010;
+
+  // TOP値指定
+  OCR1A = (unsigned int)(1000000 / frq);
+
+  // Duty比指定
+  OCR1B = (unsigned int)(1000000 / frq * duty);
+
+}
+void forward(){
+    Serial.println("forward");
+    digitalWrite(D1, HIGH);
+    digitalWrite(D2, LOW);
+    delay(300);
+    digitalWrite(D1, LOW);
+    digitalWrite(D2, LOW);
+    delay(300);
+}
+
+void back(){
+  Serial.println("back");
+  digitalWrite(D2, HIGH);
+  digitalWrite(D1, LOW);
+  delay(300);
+      digitalWrite(D1, LOW);
+    digitalWrite(D2, LOW);
+    delay(300);
+}
+int i=0;
+void loop() {
+  i=0;
+while(i<5){
+  forward();
+  i++;
+}
+i=0;
+delay(1000);
+while(i<5){
+  back();
+  i++;
+}
+}
