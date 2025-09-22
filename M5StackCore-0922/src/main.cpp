@@ -1,3 +1,10 @@
+/*https://robohanactive.slack.com/archives/C08RF0U7A49/p1758517780500099
+このリンク先のスレ用のコードです.
+MDのアナログINにはただの山を繰り返し入力しており,
+デジタルIN1,2の切り替えタイミングを調整することで
+二種類の非対称波形をMDから出力することができます.
+*/
+
 #include <Arduino.h>
 #include "M5Unified.h"
 #include "math.h"

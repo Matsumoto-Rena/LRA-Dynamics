@@ -32,6 +32,38 @@ void setup(){
 
 void loop(){
   /*非対称ノコギリ波*/
+  M5.update();
+  if(M5.BtnA.isPressed()){
+    digitalWrite(D2, LOW);
+    digitalWrite(D1, HIGH);
+    for(int i=0;i<256;i+=1){
+      dacWrite(A1, i);
+      delay(0);
+    }
+    digitalWrite(D1, LOW);
+    digitalWrite(D2, HIGH);
+    for(int i=255;i>=0;i-=1){
+      dacWrite(A1, i);
+      delay(0);
+    }
+  }else if(M5.BtnB.isPressed()){
+    digitalWrite(D1, LOW);
+    digitalWrite(D2, HIGH);
+    for(int i=0;i<256;i+=1){
+      dacWrite(A1, i);
+      delay(0);
+    }
+    digitalWrite(D2, LOW);
+    digitalWrite(D1, HIGH);
+    for(int i=255;i>=0;i-=1){
+      dacWrite(A1, i);
+      delay(0);
+    }
+  }else{
+    digitalWrite(D1, LOW);
+    digitalWrite(D2, LOW);    
+  }
+
   // for(uint8_t j=0;j<100;j++){
   //   M5.update();
   //   digitalWrite(D1, HIGH);
@@ -65,26 +97,26 @@ void loop(){
   // }
   // delay(500);
 
-  /*対象三角波*/
-  digitalWrite(D2, LOW);
-  digitalWrite(D1, HIGH);
-  for(uint8_t j=0;j<=255;j+=1){
-    dacWrite(A1, j);
-    delay(0);
-  }
-  for(uint8_t j=255;j>=0;j-=1){
-    dacWrite(A1, j);
-    delay(0);
-  }
+  // /*対象三角波*/
+  // digitalWrite(D2, LOW);
+  // digitalWrite(D1, HIGH);
+  // for(uint8_t j=0;j<=255;j+=1){
+  //   dacWrite(A1, j);
+  //   delay(0);
+  // }
+  // for(uint8_t j=255;j>=0;j-=1){
+  //   dacWrite(A1, j);
+  //   delay(0);
+  // }
   
-  digitalWrite(D1, LOW);
-  digitalWrite(D2, HIGH);
-  for(uint8_t j=0;j<=255;j+=1){
-    dacWrite(A1, j);
-    delay(0);
-  }
-  for(uint8_t j=255;j>=0;j-=1){
-    dacWrite(A1, j);
-    delay(0);
-  }
+  // digitalWrite(D1, LOW);
+  // digitalWrite(D2, HIGH);
+  // for(uint8_t j=0;j<=255;j+=1){
+  //   dacWrite(A1, j);
+  //   delay(0);
+  // }
+  // for(uint8_t j=255;j>=0;j-=1){
+  //   dacWrite(A1, j);
+  //   delay(0);
+  // }
 }
