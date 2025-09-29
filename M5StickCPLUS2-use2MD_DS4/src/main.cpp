@@ -1,3 +1,9 @@
+/*
+https://robohanactive.slack.com/archives/C08RF0U7A49/p1759132342633789
+↑動画をチャンネルにあげてます.
+M5StickCPLUS2とDS4を接続し,
+ボタン入力によって2つのLRAを対象振動させることができます.
+*/
 #include <Arduino.h>
 #include <M5Unified.h>
 #include <Bluepad32.h>
@@ -8,7 +14,7 @@ int D1_1 = 32;
 int D1_2 = 33;
 // LRA2 (左右) の制御ピン
 int D2_1 = 0;
-int D2_2 = 36;
+int D2_2 = 25;
 // DAC出力ピン
 int A1 = 26;
 // サイン波の半周期の分解能
@@ -22,31 +28,31 @@ enum Mode { OFF, RIGHT_ASYMMETRIC, LEFT_ASYMMETRIC, FRONT_ASYMMETRIC, BACK_ASYMM
 Mode current_mode = Mode::OFF;
 Mode last_mode = Mode::OFF;
 
-/**
- * @brief LRAを振動させる関数
- * @param pin_pos 正方向のピン
- * @param pin_neg 負方向のピン
- * @param asymmetric trueなら非対称(3:1)、falseなら対称(1:1)で振動
- */
-void vibrate(int pin_pos, int pin_neg, bool asymmetric) {
-    int positive_reps = asymmetric ? 3 : 1;
+// /**
+//  * @brief LRAを振動させる関数
+//  * @param pin_pos 正方向のピン
+//  * @param pin_neg 負方向のピン
+//  * @param asymmetric trueなら非対称(3:1)、falseなら対称(1:1)で振動
+//  */
+// void vibrate(int pin_pos, int pin_neg, bool asymmetric) {
+//     int positive_reps = asymmetric ? 3 : 1;
 
-    // 正方向への振動
-    for (int i = 0; i < positive_reps; ++i) {
-        digitalWrite(pin_neg, LOW);
-        digitalWrite(pin_pos, HIGH);
-        for (int j = 0; j < length; ++j) {
-            dacWrite(A1, 255 * sin(j * PI / length));
-        }
-    }
+//     // 正方向への振動
+//     for (int i = 0; i < positive_reps; ++i) {
+//         digitalWrite(pin_neg, LOW);
+//         digitalWrite(pin_pos, HIGH);
+//         for (int j = 0; j < length; ++j) {
+//             dacWrite(A1, 255 * sin(j * PI / length));
+//         }
+//     }
     
-    // 負方向への振動
-    digitalWrite(pin_pos, LOW);
-    digitalWrite(pin_neg, HIGH);
-    for (int j = 0; j < length; ++j) {
-        dacWrite(A1, 255 * sin(j * PI / length));
-    }
-}
+//     // 負方向への振動
+//     digitalWrite(pin_pos, LOW);
+//     digitalWrite(pin_neg, HIGH);
+//     for (int j = 0; j < length; ++j) {
+//         dacWrite(A1, 255 * sin(j * PI / length));
+//     }
+// }
 
 
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
@@ -113,67 +119,6 @@ void dumpGamepad(ControllerPtr ctl) {
     );
 }
 
-void dumpMouse(ControllerPtr ctl) {
-    Serial.printf("idx=%d, buttons: 0x%04x, scrollWheel=0x%04x, delta X: %4d, delta Y: %4d\n",
-                   ctl->index(),        // Controller Index
-                   ctl->buttons(),      // bitmask of pressed buttons
-                   ctl->scrollWheel(),  // Scroll Wheel
-                   ctl->deltaX(),       // (-511 - 512) left X Axis
-                   ctl->deltaY()        // (-511 - 512) left Y axis
-    );
-}
-
-void dumpKeyboard(ControllerPtr ctl) {
-    static const char* key_names[] = {
-        // clang-format off
-        // To avoid having too much noise in this file, only a few keys are mapped to strings.
-        // Starts with "A", which is offset 4.
-        "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V",
-        "W", "X", "Y", "Z", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-        // Special keys
-        "Enter", "Escape", "Backspace", "Tab", "Spacebar", "Underscore", "Equal", "OpenBracket", "CloseBracket",
-        "Backslash", "Tilde", "SemiColon", "Quote", "GraveAccent", "Comma", "Dot", "Slash", "CapsLock",
-        // Function keys
-        "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
-        // Cursors and others
-        "PrintScreen", "ScrollLock", "Pause", "Insert", "Home", "PageUp", "Delete", "End", "PageDown",
-        "RightArrow", "LeftArrow", "DownArrow", "UpArrow",
-        // clang-format on
-    };
-    static const char* modifier_names[] = {
-        // clang-format off
-        // From 0xe0 to 0xe7
-        "Left Control", "Left Shift", "Left Alt", "Left Meta",
-        "Right Control", "Right Shift", "Right Alt", "Right Meta",
-        // clang-format on
-    };
-    Serial.printf("idx=%d, Pressed keys: ", ctl->index());
-    for (int key = Keyboard_A; key <= Keyboard_UpArrow; key++) {
-        if (ctl->isKeyPressed(static_cast<KeyboardKey>(key))) {
-            const char* keyName = key_names[key-4];
-            Serial.printf("%s,", keyName);
-       }
-    }
-    for (int key = Keyboard_LeftControl; key <= Keyboard_RightMeta; key++) {
-        if (ctl->isKeyPressed(static_cast<KeyboardKey>(key))) {
-            const char* keyName = modifier_names[key-0xe0];
-            Serial.printf("%s,", keyName);
-        }
-    }
-    Console.printf("\n");
-}
-
-void dumpBalanceBoard(ControllerPtr ctl) {
-    Serial.printf("idx=%d,  TL=%u, TR=%u, BL=%u, BR=%u, temperature=%d\n",
-                   ctl->index(),        // Controller Index
-                   ctl->topLeft(),      // top-left scale
-                   ctl->topRight(),     // top-right scale
-                   ctl->bottomLeft(),   // bottom-left scale
-                   ctl->bottomRight(),  // bottom-right scale
-                   ctl->temperature()   // temperature: used to adjust the scale value's precision
-    );
-}
-
 void processGamepad(ControllerPtr ctl) {
     // There are different ways to query whether a button is pressed.
     // By query each button individually:
@@ -181,78 +126,28 @@ void processGamepad(ControllerPtr ctl) {
     button = 0;
     if (ctl->a()) {//aボタン
         button = button | 0b1;
-        Serial.println("a");
+        // Serial.println("a");
     }
 
     if (ctl->b()) {//bボタン
         button = button | 0b10;
-        Serial.println("b");
+        // Serial.println("b");
     }
 
     if (ctl->x()) {//xボタン
         button = button | 0b100;
-        Serial.println("x");
+        // Serial.println("x");
     }
     
     if (ctl->y()) {//yボタン
         button = button | 0b1000;
-        Serial.println("y");
+        // Serial.println("y");
     }
 
     if (ctl->r2()) {//r2ボタン
       button = button | 0b10000;
-        Serial.println("r2");
+        // Serial.println("r2");
     }
-}
-
-void processMouse(ControllerPtr ctl) {
-    // This is just an example.
-    if (ctl->scrollWheel() > 0) {
-        // Do Something
-    } else if (ctl->scrollWheel() < 0) {
-        // Do something else
-    }
-
-    // See "dumpMouse" for possible things to query.
-    dumpMouse(ctl);
-}
-
-void processKeyboard(ControllerPtr ctl) {
-    if (!ctl->isAnyKeyPressed())
-        return;
-
-    // This is just an example.
-    if (ctl->isKeyPressed(Keyboard_A)) {
-        // Do Something
-        Serial.println("Key 'A' pressed");
-    }
-
-    // Don't do "else" here.
-    // Multiple keys can be pressed at the same time.
-    if (ctl->isKeyPressed(Keyboard_LeftShift)) {
-        // Do something else
-        Serial.println("Key 'LEFT SHIFT' pressed");
-    }
-
-    // Don't do "else" here.
-    // Multiple keys can be pressed at the same time.
-    if (ctl->isKeyPressed(Keyboard_LeftArrow)) {
-        // Do something else
-        Serial.println("Key 'Left Arrow' pressed");
-    }
-
-    // See "dumpKeyboard" for possible things to query.
-    dumpKeyboard(ctl);
-}
-
-void processBalanceBoard(ControllerPtr ctl) {
-    // This is just an example.
-    if (ctl->topLeft() > 10000) {
-        // Do Something
-    }
-
-    // See "dumpBalanceBoard" for possible things to query.
-    dumpBalanceBoard(ctl);
 }
 
 void processControllers() {
@@ -260,12 +155,6 @@ void processControllers() {
         if (myController && myController->isConnected() && myController->hasData()) {
             if (myController->isGamepad()) {
                 processGamepad(myController);
-            } else if (myController->isMouse()) {
-                processMouse(myController);
-            } else if (myController->isKeyboard()) {
-                processKeyboard(myController);
-            } else if (myController->isBalanceBoard()) {
-                processBalanceBoard(myController);
             } else {
                 Serial.println("Unsupported controller");
             }
@@ -333,11 +222,11 @@ void loop() {
         dacWrite(A1, 255 * sin(j * PI / length));
     }
     cnt++;
-    if(cnt % 4 == 0){
-        if(button & 0b1){//aボタン押されていたら
+    if(cnt % 2 == 0){
+        if(button & 0b1){//×ボタン押されていたら
             digitalWrite(D1_2, LOW);
             digitalWrite(D1_1, HIGH);
-        }else if((button & 0b10)>>1){//bボタン押されていたら
+        }else if((button & 0b10)>>1){//〇ボタン押されていたら
             digitalWrite(D1_1, LOW);
             digitalWrite(D1_2, HIGH);
         }else{
@@ -357,10 +246,10 @@ void loop() {
         }
     }
     if(cnt % 2 == 0){
-        if((button&0b100)>>2){//xボタン押されていたら
+        if((button&0b100)>>2){//□ボタン押されていたら
             digitalWrite(D2_2, LOW);
             digitalWrite(D2_1, HIGH);
-        }else if((button&0b1000)>>3){//yボタン押されていたら
+        }else if((button&0b1000)>>3){//△ボタン押されていたら
             digitalWrite(D2_1, LOW);
             digitalWrite(D2_2, HIGH);
         }else{
