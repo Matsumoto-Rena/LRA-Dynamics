@@ -1,0 +1,804 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "2de60640-83cc-436b-97a4-426b15b610d6")
+	(paper "A4")
+	(lib_symbols
+		(symbol "Mechanical:MountingHole"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim yes)
+			(in_bom no)
+			(on_board yes)
+			(property "Reference" "H"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "MountingHole"
+				(at 0 3.175 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Mounting Hole without connection"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "mounting hole"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "MountingHole*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "MountingHole_0_1"
+				(circle
+					(center 0 0)
+					(radius 1.27)
+					(stroke
+						(width 1.27)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(junction
+		(at 81.28 72.39)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3875ce40-3567-4013-9b27-20d6d56e7311")
+	)
+	(wire
+		(pts
+			(xy 78.74 72.39) (xy 81.28 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "030cc1f8-282b-4d10-a0b0-04e87f41ab55")
+	)
+	(wire
+		(pts
+			(xy 96.52 60.96) (xy 106.68 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "05624771-21a8-4a2f-a22a-bf40c1711c57")
+	)
+	(wire
+		(pts
+			(xy 96.52 91.44) (xy 106.68 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "159a6d4e-39b6-413f-9058-6cb2c10acd23")
+	)
+	(wire
+		(pts
+			(xy 96.52 78.74) (xy 106.68 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1e39b570-5870-4407-a331-26bae1dc3ece")
+	)
+	(wire
+		(pts
+			(xy 129.54 104.14) (xy 129.54 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "211a64df-8543-4f57-a2bd-2f1a23866ee5")
+	)
+	(wire
+		(pts
+			(xy 96.52 88.9) (xy 106.68 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "60365e0f-2bac-4e0a-a6dc-49f76f57898d")
+	)
+	(wire
+		(pts
+			(xy 78.74 72.39) (xy 78.74 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9c1af26f-c19d-4275-aa78-1845ed8bc288")
+	)
+	(wire
+		(pts
+			(xy 119.38 104.14) (xy 119.38 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9da51a63-1617-4102-91e4-4c09645af6e1")
+	)
+	(wire
+		(pts
+			(xy 124.46 104.14) (xy 124.46 110.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b1714254-d175-4059-bb69-a56406aa1ec7")
+	)
+	(wire
+		(pts
+			(xy 96.52 63.5) (xy 106.68 63.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b8969082-6803-424f-a164-75180c6a66bb")
+	)
+	(wire
+		(pts
+			(xy 81.28 72.39) (xy 81.28 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c9d1e067-84e2-44aa-906e-91af3d1c9558")
+	)
+	(wire
+		(pts
+			(xy 96.52 81.28) (xy 106.68 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cb3719b8-a822-4c27-931c-0149b5d54535")
+	)
+	(wire
+		(pts
+			(xy 81.28 68.58) (xy 81.28 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d129c165-6c0f-4506-893f-94a8796725e7")
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 116.84 46.99 0)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "35bea3b1-730d-4efd-b077-236720b2b556")
+		(property "Reference" "H2"
+			(at 119.38 45.7199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 119.38 48.2599 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2"
+			(at 116.84 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 116.84 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Mounting Hole without connection"
+			(at 116.84 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6"
+					(reference "H2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 110.49 46.99 0)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "440edb7f-1346-41fe-9119-8cfe9b5f9385")
+		(property "Reference" "H1"
+			(at 113.03 45.7199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 113.03 48.2599 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2"
+			(at 110.49 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 110.49 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Mounting Hole without connection"
+			(at 110.49 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project ""
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6"
+					(reference "H1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 123.19 46.99 0)
+		(unit 1)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "92e1812a-56ab-4b78-a63d-493abf81139e")
+		(property "Reference" "H3"
+			(at 125.73 45.7199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 125.73 48.2599 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MountingHole:MountingHole_2.2mm_M2"
+			(at 123.19 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 123.19 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Mounting Hole without connection"
+			(at 123.19 46.99 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6"
+					(reference "H3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet
+		(at 74.676 57.404)
+		(size 21.844 11.176)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "35637d56-02b2-4d1d-a318-c241901b7b81")
+		(property "Sheetname" "DAC"
+			(at 74.676 56.6924 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "DAC.kicad_sch"
+			(at 74.676 69.1646 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "DAC_SCL" bidirectional
+			(at 96.52 63.5 0)
+			(uuid "0b35e1d2-e526-4ba5-85ff-71b309a8983b")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "DAC_OUT" output
+			(at 81.28 68.58 270)
+			(uuid "8d679912-c722-49bc-99d0-534fab647b6e")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "DAC_SDA" bidirectional
+			(at 96.52 60.96 0)
+			(uuid "a451b41f-9dd1-4699-9727-133497bada5c")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 106.68 110.49)
+		(size 32.766 16.764)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "ab66820f-d4de-445a-808f-ae0431d3c659")
+		(property "Sheetname" "power"
+			(at 105.9684 127.254 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "power.kicad_sch"
+			(at 140.0306 127.254 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "Vol_check" output
+			(at 119.38 110.49 90)
+			(uuid "e394bdef-13b2-4e20-9d14-dc0cc0241d33")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "Li-ion+" input
+			(at 124.46 110.49 90)
+			(uuid "76cfaacf-6e46-436f-903f-8eef072b1d23")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "Li-ion-" input
+			(at 129.54 110.49 90)
+			(uuid "3d2884d9-c23e-4f6a-b750-7935db2e8e61")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 106.68 56.896)
+		(size 33.02 47.244)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "b9c26fcb-6ef7-44b8-97d3-8eed317718ae")
+		(property "Sheetname" "XIAO_ESP32_C3"
+			(at 106.68 56.1844 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "XIAO_ESP32_C3.kicad_sch"
+			(at 106.68 104.7246 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "BATT_IN+" input
+			(at 124.46 104.14 270)
+			(uuid "356627d8-3be9-4219-87f4-abe3306090cb")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "D2{slash}GIPO4" output
+			(at 106.68 78.74 180)
+			(uuid "52d5c8ba-3f4d-450d-8390-14684b2a8bf1")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "BATT_IN-" input
+			(at 129.54 104.14 270)
+			(uuid "730d73a6-fd03-4905-86eb-b892383a9825")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "D5{slash}IIC_SCL" bidirectional
+			(at 106.68 63.5 180)
+			(uuid "ef8f090a-acb7-4277-8a0e-d61388ec870e")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "D10{slash}GIPO10" output
+			(at 106.68 91.44 180)
+			(uuid "875c8ef7-24e7-44fd-9c4a-24530817154e")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "D3{slash}GIPO5" output
+			(at 106.68 81.28 180)
+			(uuid "db7caf87-1425-4f59-b3e5-b76e9547a2e4")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "D4{slash}IIC_SDA" bidirectional
+			(at 106.68 60.96 180)
+			(uuid "48bf71c3-37ec-4983-94d3-302b704c6fdc")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "D7{slash}GIPO20" output
+			(at 106.68 88.9 180)
+			(uuid "cdc380ed-5e93-429a-b4eb-069baa08cf69")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "A1{slash}ADC1" input
+			(at 119.38 104.14 270)
+			(uuid "d194e848-6be3-45d2-a334-2082466dabb0")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6"
+					(page "5")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 74.93 76.2)
+		(size 21.59 26.924)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "dde69832-1fdb-4162-bbfc-013df7eb0793")
+		(property "Sheetname" "Motor_Driver"
+			(at 74.93 75.4884 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Motor_Driver.kicad_sch"
+			(at 74.93 103.7086 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "PWM_IN_A2" input
+			(at 96.52 81.28 0)
+			(uuid "c5cfbca8-0299-48a5-97b7-6cceb7c62454")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "PWM_IN_A1" input
+			(at 96.52 78.74 0)
+			(uuid "fade5cd5-d593-430a-bfb0-bb4820fe87b8")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "PWM_IN_B1" input
+			(at 96.52 91.44 0)
+			(uuid "50dad8a5-7b53-4cba-9e81-fadad70e59db")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "PWM_IN_B2" input
+			(at 96.52 88.9 0)
+			(uuid "1e96dd07-ddbe-415d-a1ff-9a0267b9d4f1")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "PWM_Signal_B" input
+			(at 78.74 76.2 90)
+			(uuid "0a2bb20d-4a15-40b1-ace7-c700f4e3d03d")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "PWM_Signal_A" input
+			(at 81.28 76.2 90)
+			(uuid "1551aad9-e9f8-4dd1-9d67-1fefad20731d")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)
