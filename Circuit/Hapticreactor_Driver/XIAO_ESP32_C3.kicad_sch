@@ -1188,15 +1188,15 @@
 		)
 		(uuid "87937335-27ec-4ea3-b308-30bc57bc7467")
 	)
-	(label "D7{slash}GPIO20"
-		(at 195.58 64.77 0)
+	(label "D6{slash}GPIO6"
+		(at 195.58 64.77 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
-		(uuid "efc86603-109c-4b39-ba19-c457012c3254")
+		(uuid "fe0e08d9-fa92-4de4-9068-91149977df99")
 	)
 	(hierarchical_label "D7{slash}GIPO20"
 		(shape output)
@@ -1385,7 +1385,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "R"
+		(property "Value" "1k"
 			(at 198.12 69.8499 0)
 			(effects
 				(font

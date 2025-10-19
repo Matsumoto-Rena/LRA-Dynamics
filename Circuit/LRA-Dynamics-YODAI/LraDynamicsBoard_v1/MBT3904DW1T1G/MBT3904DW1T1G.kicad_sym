@@ -1,0 +1,199 @@
+
+(kicad_symbol_lib (version 20211014) (generator kicad_symbol_editor)
+  (symbol "MBT3904DW1T1G" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
+    (property "Reference" "U" (id 0) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom))
+    )
+    (property "Value" "MBT3904DW1T1G" (id 1) (at 0 0.0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom))
+    )
+    (property "Footprint" "MBT3904DW1T1G:SOT236" (id 2) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (property "MF" "onsemi" (id 4) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (property "Description" "\n                        \n                            Bipolar (BJT) Transistor Array 2 NPN (Dual) 40V 200mA 300MHz 150mW Surface Mount SC-88/SC70-6/SOT-363\n                        \n" (id 5) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (property "Package" "SC-88-6 ON Semiconductor" (id 6) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (property "Price" "None" (id 7) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (property "SnapEDA_Link" "https://www.snapeda.com/parts/MBT3904DW1T1G/Onsemi/view-part/?ref=snap" (id 8) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (property "MP" "MBT3904DW1T1G" (id 9) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (property "Availability" "In Stock" (id 10) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (property "Check_prices" "https://www.snapeda.com/parts/MBT3904DW1T1G/Onsemi/view-part/?ref=eda" (id 11) (at 0 0 0)
+      (effects (font (size 1.27 1.27)) (justify bottom) hide)
+    )
+    (symbol "MBT3904DW1T1G_0_0"
+      (polyline
+        (pts (xy -7.62 2.54) (xy -7.62 0.0)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -7.62 0.0) (xy -7.62 -2.54)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -7.62 0.0) (xy -10.16 2.54)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -10.16 2.54) (xy -10.16 7.62)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -7.62 0.0) (xy -10.16 -2.54)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -8.636 -2.032) (xy -9.652 -0.762)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -9.652 -0.762) (xy -10.16 -2.54)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -10.16 -2.54) (xy -8.636 -2.032)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -8.636 -2.032) (xy -9.144 -2.032)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -9.144 -2.032) (xy -9.144 -1.778)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -9.144 -1.778) (xy -9.398 -2.032)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -9.398 -2.032) (xy -9.652 -1.524)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -9.652 -1.524) (xy -9.906 -1.778)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -9.906 -1.778) (xy -9.652 -1.27)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -9.652 -1.27) (xy -9.398 -1.524)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -7.62 0.0) (xy -2.54 0.0)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 7.62 -2.54) (xy 7.62 0.0)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 7.62 0.0) (xy 7.62 2.54)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 7.62 0.0) (xy 10.16 -2.54)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 7.62 0.0) (xy 10.16 2.54)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 8.636 2.032) (xy 9.652 0.762)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 9.652 0.762) (xy 10.16 2.54)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 10.16 2.54) (xy 8.636 2.032)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 8.636 2.032) (xy 9.144 2.032)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 9.144 2.032) (xy 9.144 1.778)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 9.144 1.778) (xy 9.398 2.032)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 9.398 2.032) (xy 9.652 1.524)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 9.652 1.524) (xy 9.906 1.778)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 9.906 1.778) (xy 9.652 1.27)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 9.652 1.27) (xy 9.398 1.524)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 7.62 0.0) (xy 2.54 0.0)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -2.54 0.0) (xy -2.54 -7.62)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy -10.16 -2.54) (xy -10.16 -7.62)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 2.54 0.0) (xy 2.54 7.62)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 10.16 2.54) (xy 10.16 7.62)) (stroke (width 0.4064))
+      )
+      (polyline
+        (pts (xy 10.16 -2.54) (xy 10.16 -7.62)) (stroke (width 0.4064))
+      )
+      (rectangle (start -12.7 -5.08) (end 12.7 5.08)
+        (stroke (width 0.254)) (fill (type background))
+      )
+      (pin bidirectional line (at -10.16 7.62 180.0) (length 0)
+        (name "~"
+          (effects (font (size 1.016 1.016)))
+        )
+        (number "3"
+          (effects (font (size 1.016 1.016)))
+        )
+      )
+      (pin bidirectional line (at -10.16 -7.62 180.0) (length 0)
+        (name "~"
+          (effects (font (size 1.016 1.016)))
+        )
+        (number "4"
+          (effects (font (size 1.016 1.016)))
+        )
+      )
+      (pin bidirectional line (at -2.54 -7.62 180.0) (length 0)
+        (name "~"
+          (effects (font (size 1.016 1.016)))
+        )
+        (number "5"
+          (effects (font (size 1.016 1.016)))
+        )
+      )
+      (pin bidirectional line (at 10.16 -7.62 0) (length 0)
+        (name "~"
+          (effects (font (size 1.016 1.016)))
+        )
+        (number "6"
+          (effects (font (size 1.016 1.016)))
+        )
+      )
+      (pin bidirectional line (at 10.16 7.62 0) (length 0)
+        (name "~"
+          (effects (font (size 1.016 1.016)))
+        )
+        (number "1"
+          (effects (font (size 1.016 1.016)))
+        )
+      )
+      (pin bidirectional line (at 2.54 7.62 0) (length 0)
+        (name "~"
+          (effects (font (size 1.016 1.016)))
+        )
+        (number "2"
+          (effects (font (size 1.016 1.016)))
+        )
+      )
+    )
+  )
+)
