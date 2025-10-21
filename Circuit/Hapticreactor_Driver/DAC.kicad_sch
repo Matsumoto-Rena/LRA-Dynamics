@@ -835,7 +835,7 @@
 			(embedded_fonts no)
 		)
 	)
-	(text_box "IIC_Address_Select\nNC:0x60\nConnected:0x61\n"
+	(text_box "IIC_Address_Select\nNC:0x62\nConnected:0x63\n"
 		(exclude_from_sim no)
 		(at 167.132 62.738 0)
 		(size 44.196 33.528)
@@ -1094,7 +1094,7 @@
 			)
 		)
 		(property "Value" "MCP4725xxx-xCH"
-			(at 122.936 76.708 0)
+			(at 131.572 76.454 0)
 			(effects
 				(font
 					(size 1.27 1.27)

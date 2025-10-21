@@ -1032,7 +1032,7 @@
 		(at 105.41 62.23)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "394ac028-b11f-46c0-9b38-fa18c2063a50")
+		(uuid "240d3dbc-9b99-42eb-93e2-ff2a24a6904e")
 	)
 	(junction
 		(at 165.1 55.88)
@@ -1559,6 +1559,72 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+3.3V")
+		(at 105.41 62.23 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "53ceeb99-1677-40c8-bf1d-9e9eaf77f8fc")
+		(property "Reference" "#PWR06"
+			(at 105.41 66.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 105.41 57.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 105.41 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 105.41 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 105.41 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b820bc72-7fe3-4f03-9178-de518ebe5931")
+		)
+		(instances
+			(project ""
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "#PWR06")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:LED")
 		(at 195.58 76.2 90)
 		(unit 1)
@@ -1965,72 +2031,6 @@
 			(project "Hapticreactor_Driver"
 				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
 					(reference "#PWR013")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 105.41 62.23 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "e4ebe356-5c62-4380-b85e-5096ef2b4b79")
-		(property "Reference" "#PWR014"
-			(at 105.41 66.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 105.41 57.15 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 105.41 62.23 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 105.41 62.23 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 105.41 62.23 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "3c534a12-2e14-44ea-9e1c-564c4510d20c")
-		)
-		(instances
-			(project "Hapticreactor_Driver"
-				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
-					(reference "#PWR014")
 					(unit 1)
 				)
 			)
