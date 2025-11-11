@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam & Web Bluetooth</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; }
+        video { border: 2px solid #333; width: 80%; max-width: 600px; }
+        canvas { display: none; } /* 画像処理用に裏で待機 */
+        button { font-size: 1.2em; padding: 10px 20px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h1>Webcam → Bluetooth</h1>
+    
+    <video id="webcam" autoplay playsinline></video>
+    
+    <canvas id="canvas"></canvas>
+
+    <div>
+        <button id="startButton">① カメラを起動</button>
+        <button id="connectButton">② Bluetooth 接続</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const startButton = document.getElementById('startButton');
+        const connectButton = document.getElementById('connectButton');
+
+        let bleDevice; // 接続したデバイスを保持する変数
+        let bleCharacteristic; // データを書き込む「特性」を保持する変数
+
+        // --- 1. カメラを起動する処理 ---
+        startButton.onclick = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: false
+                });
+                video.srcObject = stream;
+                console.log("カメラを起動しました");
+                
+                // TODO: ここに OpenCV.js などの画像処理ループを将来追加する
+                // (例: 100ms ごとに video の内容を canvas に転写して処理する)
+
+            } catch (err) {
+                console.error("カメラの起動に失敗しました:", err);
+                alert("カメラの起動に失敗しました。");
+            }
+        };
+
+        // --- 2. Bluetooth (BLE) に接続する処理 ---
+        connectButton.onclick = async () => {
+            // !! 注意 !!
+            // 'service-uuid' と 'characteristic-uuid' は、
+            // あなたがマイコン(ESP32)側に書き込むコードと
+            // 完全に一致させる必要があります。
+
+            // 例: ESP32 側で決めた UUID (これはダミーです)
+            const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
+            const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
+
+            try {
+                console.log("BLE デバイスのスキャンを開始します...");
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    // フィルター: 指定したサービス UUID を持つデバイスのみ表示
+                    filters: [{ services: [SERVICE_UUID] }],
+                    // オプショナル: 名前でフィルタリングも可能
+                    // filters: [{ name: 'ESP32_MyDevice' }]
+                });
+
+                console.log("デバイスに接続中:", bleDevice.name);
+                const server = await bleDevice.gatt.connect();
+
+                console.log("GATT サービスを取得中...");
+                const service = await server.getPrimaryService(SERVICE_UUID);
+
+                console.log("GATT 特性 (Characteristic) を取得中...");
+                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+                console.log("接続完了！データを送信できます。");
+                alert(bleDevice.name + " に接続しました。");
+
+            } catch (err) {
+                console.error("Bluetooth 接続に失敗しました:", err);
+                alert("Bluetooth 接続に失敗しました。");
+            }
+        };
+
+        // --- 3. (参考) データを送信する関数の例 ---
+        // この関数を画像処理の結果が出たときに呼び出す
+        async function sendBleData(data) {
+            if (!bleCharacteristic) {
+                console.warn("BLE が接続されていません。");
+                return;
+            }
+            
+            // data は ArrayBuffer である必要があります
+            // 例: 'L' という文字 (ASCII: 76) を送る
+            // const dataToSend = new Uint8Array([76]); 
+            
+            // 例: 0〜255 の数値を送る
+            const dataToSend = new Uint8Array([data]); 
+
+            try {
+                await bleCharacteristic.writeValue(dataToSend.buffer);
+                console.log("データを送信しました:", data);
+            } catch (err) {
+                console.error("データ送信エラー:", err);
+            }
+        }
+        
+        // --- (参考) 接続解除の処理 ---
+        // (ページを閉じるかリロードすると自動で切れます)
+        
+    </script>
+</body>
+</html>
