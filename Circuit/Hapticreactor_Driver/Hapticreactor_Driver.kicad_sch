@@ -361,10 +361,9 @@
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "92e1812a-56ab-4b78-a63d-493abf81139e")
 		(property "Reference" "H3"
-			(at 125.73 45.7199 0)
+			(at 127.254 45.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
