@@ -372,7 +372,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 125.73 48.2599 0)
+			(at 125.73 49.022 0)
 			(effects
 				(font
 					(size 1.27 1.27)
