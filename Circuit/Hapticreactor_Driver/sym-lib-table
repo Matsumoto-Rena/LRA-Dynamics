@@ -3,4 +3,5 @@
   (lib (name "xiao_esp32c3")(type "KiCad")(uri "${KIPRJMOD}/Libraries/xiao_esp32c3.kicad_sym")(options "")(descr ""))
   (lib (name "TB6552FNG")(type "KiCad")(uri "${KIPRJMOD}/Libraries/TB6552FNG.kicad_sym")(options "")(descr ""))
   (lib (name "XCL103D503CR-G")(type "KiCad")(uri "C:/Users/ka0n7/Downloads/LIB_XCL103D503CR-G/XCL103D503CR-G/KiCad/XCL103D503CR-G.kicad_sym")(options "")(descr ""))
+  (lib (name "0_MySymbolLibrary")(type "KiCad")(uri "${KIPRJMOD}/0_MySymbolLibrary.kicad_sym")(options "")(descr ""))
 )

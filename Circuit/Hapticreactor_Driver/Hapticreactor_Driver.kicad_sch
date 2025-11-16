@@ -89,22 +89,6 @@
 			(embedded_fonts no)
 		)
 	)
-	(junction
-		(at 81.28 72.39)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "3875ce40-3567-4013-9b27-20d6d56e7311")
-	)
-	(wire
-		(pts
-			(xy 78.74 72.39) (xy 81.28 72.39)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "030cc1f8-282b-4d10-a0b0-04e87f41ab55")
-	)
 	(wire
 		(pts
 			(xy 96.52 60.96) (xy 106.68 60.96)
@@ -114,16 +98,6 @@
 			(type default)
 		)
 		(uuid "05624771-21a8-4a2f-a22a-bf40c1711c57")
-	)
-	(wire
-		(pts
-			(xy 96.52 91.44) (xy 106.68 91.44)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "159a6d4e-39b6-413f-9058-6cb2c10acd23")
 	)
 	(wire
 		(pts
@@ -144,26 +118,6 @@
 			(type default)
 		)
 		(uuid "211a64df-8543-4f57-a2bd-2f1a23866ee5")
-	)
-	(wire
-		(pts
-			(xy 96.52 88.9) (xy 106.68 88.9)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "60365e0f-2bac-4e0a-a6dc-49f76f57898d")
-	)
-	(wire
-		(pts
-			(xy 78.74 72.39) (xy 78.74 76.2)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9c1af26f-c19d-4275-aa78-1845ed8bc288")
 	)
 	(wire
 		(pts
@@ -197,7 +151,7 @@
 	)
 	(wire
 		(pts
-			(xy 81.28 72.39) (xy 81.28 76.2)
+			(xy 81.28 68.58) (xy 81.28 76.2)
 		)
 		(stroke
 			(width 0)
@@ -214,16 +168,6 @@
 			(type default)
 		)
 		(uuid "cb3719b8-a822-4c27-931c-0149b5d54535")
-	)
-	(wire
-		(pts
-			(xy 81.28 68.58) (xy 81.28 72.39)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d129c165-6c0f-4506-893f-94a8796725e7")
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
@@ -698,16 +642,6 @@
 				(justify left)
 			)
 		)
-		(pin "D10{slash}GIPO10" output
-			(at 106.68 91.44 180)
-			(uuid "875c8ef7-24e7-44fd-9c4a-24530817154e")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
 		(pin "D3{slash}GIPO5" output
 			(at 106.68 81.28 180)
 			(uuid "db7caf87-1425-4f59-b3e5-b76e9547a2e4")
@@ -721,16 +655,6 @@
 		(pin "D4{slash}IIC_SDA" bidirectional
 			(at 106.68 60.96 180)
 			(uuid "48bf71c3-37ec-4983-94d3-302b704c6fdc")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(pin "D7{slash}GIPO20" output
-			(at 106.68 88.9 180)
-			(uuid "cdc380ed-5e93-429a-b4eb-069baa08cf69")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -803,36 +727,6 @@
 		(pin "PWM_IN_A1" input
 			(at 96.52 78.74 0)
 			(uuid "fade5cd5-d593-430a-bfb0-bb4820fe87b8")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "PWM_IN_B1" input
-			(at 96.52 91.44 0)
-			(uuid "50dad8a5-7b53-4cba-9e81-fadad70e59db")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "PWM_IN_B2" input
-			(at 96.52 88.9 0)
-			(uuid "1e96dd07-ddbe-415d-a1ff-9a0267b9d4f1")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "PWM_Signal_B" input
-			(at 78.74 76.2 90)
-			(uuid "0a2bb20d-4a15-40b1-ace7-c700f4e3d03d")
 			(effects
 				(font
 					(size 1.27 1.27)

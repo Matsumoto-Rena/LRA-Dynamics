@@ -1053,10 +1053,6 @@
 		(uuid "f12fc6cb-3be0-4e2d-bebc-65ec1a458152")
 	)
 	(no_connect
-		(at 158.75 77.47)
-		(uuid "122d1112-3c32-45ed-974b-cf487b806b47")
-	)
-	(no_connect
 		(at 158.75 73.66)
 		(uuid "135d58d0-8e88-437a-964c-30a1de29389b")
 	)
@@ -1189,7 +1185,7 @@
 		(uuid "87937335-27ec-4ea3-b308-30bc57bc7467")
 	)
 	(label "D6{slash}GPIO6"
-		(at 195.58 64.77 180)
+		(at 186.69 63.5 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1198,16 +1194,137 @@
 		)
 		(uuid "fe0e08d9-fa92-4de4-9068-91149977df99")
 	)
-	(hierarchical_label "D7{slash}GIPO20"
-		(shape output)
-		(at 158.75 81.28 0)
+	(global_label "D8{slash}GPIO8"
+		(shape input)
+		(at 208.28 63.5 90)
+		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "1d1d6ddd-4d5d-4208-abbc-a7fcbb73794f")
+		(uuid "326d299b-238e-4028-ae73-e7c29455ac8b")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 208.28 51.02 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "D8{slash}GPIO8"
+		(shape input)
+		(at 158.75 77.47 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "58416567-ab46-4888-b537-dc105b06248c")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 171.23 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "D10{slash}GPIO10"
+		(shape input)
+		(at 217.17 63.5 90)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "91e1e589-a4c8-418a-9873-dc30b3a364c0")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 217.17 48.601 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "D7{slash}GPIO20"
+		(shape input)
+		(at 198.12 63.5 90)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "b8a88609-cbf0-45e7-91b1-5b0e23e28e0f")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 198.12 49.8105 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "D7{slash}GPIO20"
+		(shape input)
+		(at 158.75 81.28 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "b9a556d2-f231-4fc9-8837-599ce95de46f")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 172.4395 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "D10{slash}GPIO10"
+		(shape input)
+		(at 158.75 69.85 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "da496b2f-4ae6-4bbd-af6c-060a596088d8")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 173.649 69.85 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
 	)
 	(hierarchical_label "D3{slash}GIPO5"
 		(shape output)
@@ -1274,17 +1391,6 @@
 			(justify right)
 		)
 		(uuid "cbc06b6b-0d4e-4ae2-851f-e6ed1585d2aa")
-	)
-	(hierarchical_label "D10{slash}GIPO10"
-		(shape output)
-		(at 158.75 69.85 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "d969d1ee-afd7-4092-870e-712bce4134ff")
 	)
 	(hierarchical_label "BATT_IN+"
 		(shape input)
@@ -1367,17 +1473,26 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:R")
-		(at 195.58 68.58 0)
+		(lib_id "power:PWR_FLAG")
+		(at 143.51 91.44 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "1329b985-a48f-4f3c-80b8-2c846e198166")
-		(property "Reference" "R6"
-			(at 198.12 67.3099 0)
+		(uuid "0b242758-bbf4-4244-a5ff-2bcc608d8d29")
+		(property "Reference" "#FLG03"
+			(at 145.415 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 147.32 91.4399 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1385,17 +1500,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1k"
-			(at 198.12 69.8499 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
-			(at 193.802 68.58 90)
+		(property "Footprint" ""
+			(at 143.51 91.44 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1404,7 +1510,74 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 195.58 68.58 0)
+			(at 143.51 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 143.51 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4b63a829-309b-471c-9e6d-5d3be98ea2ab")
+		)
+		(instances
+			(project ""
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "#FLG03")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 186.69 67.31 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "1329b985-a48f-4f3c-80b8-2c846e198166")
+		(property "Reference" "R6"
+			(at 189.23 66.0399 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "1k"
+			(at 189.23 68.5799 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 184.912 67.31 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 186.69 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1413,7 +1586,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 195.58 68.58 0)
+			(at 186.69 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1559,6 +1732,291 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 217.17 78.74 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2cf7b1d5-7f29-4431-88a8-d9ed168d8a07")
+		(property "Reference" "#PWR024"
+			(at 217.17 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 217.17 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 217.17 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 217.17 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 217.17 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "de0fbca6-be0e-4d7d-abed-dd7c00294b45")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "#PWR024")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 217.17 67.31 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "3b1f1bea-def5-4d7e-8670-a0ade82e46ec")
+		(property "Reference" "R9"
+			(at 219.71 66.0399 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "1k"
+			(at 219.71 68.5799 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 215.392 67.31 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 217.17 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 217.17 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4d1bb898-651e-4ba7-972e-1dddcf2add92")
+		)
+		(pin "2"
+			(uuid "88565b8d-ee31-4ae3-8a6e-de8e282d1784")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "R9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 208.28 67.31 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "3e45fe1b-b6ed-4149-900b-769ac15d9259")
+		(property "Reference" "R8"
+			(at 210.82 66.0399 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "1k"
+			(at 210.82 68.5799 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 206.502 67.31 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 208.28 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 208.28 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e2a52076-1c36-45dd-94a9-01a9861571d4")
+		)
+		(pin "2"
+			(uuid "dfd04032-2c2e-49e6-b86b-d9383deb10fa")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "R8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED")
+		(at 208.28 74.93 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "3f054c84-f59e-416c-8efd-8a634b901bfc")
+		(property "Reference" "D3"
+			(at 212.09 75.2474 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "LED"
+			(at 212.09 77.7874 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+			(at 208.28 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 208.28 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Light emitting diode"
+			(at 208.28 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 208.28 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f782d990-21ef-412b-b0ca-87a7b9c9c7ed")
+		)
+		(pin "2"
+			(uuid "4a946f3d-dd64-4729-9416-fc49e5f7bb41")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "D3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3.3V")
 		(at 105.41 62.23 0)
 		(unit 1)
@@ -1625,35 +2083,35 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:LED")
-		(at 195.58 76.2 90)
+		(lib_id "Device:R")
+		(at 198.12 67.31 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "7de41176-76ca-47fb-b863-424d86363f2a")
-		(property "Reference" "D1"
-			(at 199.39 76.5174 90)
+		(uuid "5fd803d7-5b19-4e63-be63-d18212a255df")
+		(property "Reference" "R7"
+			(at 200.66 66.0399 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify right)
+				(justify left)
 			)
 		)
-		(property "Value" "LED"
-			(at 199.39 79.0574 90)
+		(property "Value" "1k"
+			(at 200.66 68.5799 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify right)
+				(justify left)
 			)
 		)
-		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
-			(at 195.58 76.2 0)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
+			(at 196.342 67.31 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1662,7 +2120,77 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 195.58 76.2 0)
+			(at 198.12 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 198.12 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "9bf438f2-cdad-4792-8431-547bac1c121a")
+		)
+		(pin "2"
+			(uuid "83a35cd4-b7b0-4c26-8ad9-76d90f88e6e9")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "R7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED")
+		(at 217.17 74.93 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "68997ce8-17c6-4cd3-9351-c22f8b39ec5e")
+		(property "Reference" "D4"
+			(at 220.98 75.2474 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "LED"
+			(at 220.98 77.7874 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+			(at 217.17 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 217.17 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1671,7 +2199,7 @@
 			)
 		)
 		(property "Description" "Light emitting diode"
-			(at 195.58 76.2 0)
+			(at 217.17 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1680,7 +2208,86 @@
 			)
 		)
 		(property "Sim.Pins" "1=K 2=A"
-			(at 195.58 76.2 0)
+			(at 217.17 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "24269a6b-2b2a-4612-8f51-27072930bf7a")
+		)
+		(pin "2"
+			(uuid "bde68cc9-ad58-4e80-bde2-59ab2d74fb78")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "D4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED")
+		(at 186.69 74.93 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "7de41176-76ca-47fb-b863-424d86363f2a")
+		(property "Reference" "D1"
+			(at 190.5 75.2474 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "LED"
+			(at 190.5 77.7874 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+			(at 186.69 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 186.69 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Light emitting diode"
+			(at 186.69 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 186.69 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1698,6 +2305,72 @@
 			(project "Hapticreactor_Driver"
 				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
 					(reference "D1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 198.12 78.74 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "822e9e20-0b21-4cab-8ca2-c6ca90a6960a")
+		(property "Reference" "#PWR022"
+			(at 198.12 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 198.12 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 198.12 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 198.12 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 198.12 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e0ab2ee2-aa48-4291-b465-e83f55dcb9b3")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "#PWR022")
 					(unit 1)
 				)
 			)
@@ -1906,8 +2579,87 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:LED")
+		(at 198.12 74.93 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "d4edd643-0fbb-4de1-8e9e-336333f953ad")
+		(property "Reference" "D2"
+			(at 201.93 75.2474 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "LED"
+			(at 201.93 77.7874 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+			(at 198.12 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 198.12 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Light emitting diode"
+			(at 198.12 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 198.12 74.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b69f0fbf-eb3a-49af-a248-430e196473e8")
+		)
+		(pin "2"
+			(uuid "12017332-34fc-4b9a-9bb5-0fdf4c44724d")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "D2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
-		(at 195.58 80.01 0)
+		(at 186.69 78.74 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1916,7 +2668,7 @@
 		(fields_autoplaced yes)
 		(uuid "da3f4f6e-8553-4987-9222-8349d8d0ea3f")
 		(property "Reference" "#PWR015"
-			(at 195.58 86.36 0)
+			(at 186.69 85.09 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1925,7 +2677,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 195.58 85.09 0)
+			(at 186.69 83.82 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1933,7 +2685,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 195.58 80.01 0)
+			(at 186.69 78.74 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1942,7 +2694,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 195.58 80.01 0)
+			(at 186.69 78.74 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1951,7 +2703,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 195.58 80.01 0)
+			(at 186.69 78.74 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2031,6 +2783,72 @@
 			(project "Hapticreactor_Driver"
 				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
 					(reference "#PWR013")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 208.28 78.74 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "fcd47a8f-3fd0-4ff7-8a80-16be1160b49a")
+		(property "Reference" "#PWR023"
+			(at 208.28 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 208.28 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 208.28 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 208.28 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 208.28 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1b8afe36-df6b-4269-9e38-accdab781af9")
+		)
+		(instances
+			(project "Hapticreactor_Driver"
+				(path "/2de60640-83cc-436b-97a4-426b15b610d6/b9c26fcb-6ef7-44b8-97d3-8eed317718ae"
+					(reference "#PWR023")
 					(unit 1)
 				)
 			)
