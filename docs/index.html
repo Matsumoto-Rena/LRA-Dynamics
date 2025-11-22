@@ -33,97 +33,100 @@
     <script>
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        // willReadFrequently: true は画像処理を高速化するおまじないです
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
         const startButton = document.getElementById('startButton');
         const connectButton = document.getElementById('connectButton');
         const loading = document.getElementById('loading');
 
         let bleDevice;
         let bleCharacteristic;
-        let cv; // OpenCV オブジェクトを保持するグローバル変数
+        let cv; 
 
-        // --- OpenCV.js がロード完了したら呼ばれる関数 ---
-        // (script タグに async がついているため、この onload 処理が必要)
+        // OpenCVロード待ち
         window.onload = () => {
             if (window.cv) {
-                cv = window.cv; // グローバル変数にセット
+                cv = window.cv;
                 loading.textContent = "OpenCV.js ロード完了！";
                 console.log("OpenCV.js ロード完了");
             } else {
-                // async ロードがまだ終わっていない場合のリトライ
                 setTimeout(window.onload, 500);
             }
         };
 
-        // --- 1. カメラを起動 & 処理開始 ---
+        // --- 1. カメラ起動 ---
         startButton.onclick = async () => {
-            if (!cv) {
-                alert("OpenCV.js がまだロード中です。少し待って再試行してください。");
-                return;
-            }
+            if (!cv) { alert("OpenCV.js ロード中..."); return; }
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true, 
-                    audio: false
+                // カメラの解像度をリクエストしますが、無視されることもあります
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 320, height: 240 }, 
+                    audio: false 
                 });
                 video.srcObject = stream;
-                
-                await video.play(); 
+                await video.play(); // 再生開始
 
-                // video のメタデータがロードされたら、canvas のサイズを合わせる
-                // (念のため onloadedmetadata ではなく、直接実行でも動くことが多いですが、このままでOK)
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                console.log(`カメラ解像度: ${canvas.width} x ${canvas.height}`);
+                // キャンバスのサイズを処理しやすいサイズ(320x240)に固定してしまう
+                canvas.width = 320;
+                canvas.height = 240;
                 
-                startProcessing();
+                console.log(`処理解像度を ${canvas.width}x${canvas.height} に設定しました`);
+                
+                // 処理ループ開始
+                requestAnimationFrame(processVideo);
 
             } catch (err) {
-                console.error("カメラの起動に失敗しました:", err);
-                alert("カメラの起動に失敗しました。");
+                console.error("カメラ起動エラー:", err);
+                alert("カメラ起動に失敗しました");
             }
         };
 
-        // --- 2. OpenCV.js の処理ループ ---
-        function startProcessing() {
-            // OpenCV で使う Mat (行列＝画像) オブジェクトを初期化
-            let src = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC4);
-            let hsv = new cv.Mat();
-            let mask = new cv.Mat();
-            let mask1 = new cv.Mat();
-            let mask2 = new cv.Mat();
-            let contours = new cv.MatVector();
-            let hierarchy = new cv.Mat();
+        // --- 2. 画像処理ループ (drawImage方式) ---
+        function processVideo() {
+            try {
+                if (!cv || video.paused || video.ended) {
+                    requestAnimationFrame(processVideo);
+                    return;
+                }
 
-            // video の映像を canvas に書き込むためのラッパー
-            const cap = new cv.VideoCapture(video);
+                // ★ここが修正ポイント！ cap.read() を使いません ★
+                // 1. カメラ映像(640x480かも)を、Canvas(320x240)に縮小して描画
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // 2. Canvasから画像データを吸い出す
+                let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // 3. OpenCVのMatを作成 (毎回作ってもJSなら意外と大丈夫ですが、最適化するなら外に出します)
+                let src = cv.matFromImageData(imgData);
+                let hsv = new cv.Mat();
+                let mask = new cv.Mat();
+                
+                // --- ここから画像処理 ---
+                cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); // RGBへ
+                cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);  // HSVへ
 
-            const FPS = 30; // 1秒間に30回処理する
-            setInterval(() => {
-                // 1. video から1フレーム読み込む
-                cap.read(src); // video の内容を src (Mat) に書き込む
-
-                // 2. RGB から HSV 色空間に変換
-                cv.cvtColor(src, hsv, cv.COLOR_RGB2HSV);
-
-                // 3. 「赤色」の範囲でマスク（二値化）する
-                // 赤は HSV で 0 付近と 180 付近に分かれるため、2つの範囲を取る
-                let low1  = new cv.Scalar(0,   120, 70);
-                let high1 = new cv.Scalar(10,  255, 255);
-                let low2  = new cv.Scalar(170, 120, 70);
+                // 赤色の検出範囲
+                let low1  = new cv.Scalar(0, 100, 100);
+                let high1 = new cv.Scalar(10, 255, 255);
+                let low2  = new cv.Scalar(170, 100, 100);
                 let high2 = new cv.Scalar(180, 255, 255);
+                
+                let mask1 = new cv.Mat();
+                let mask2 = new cv.Mat();
 
                 cv.inRange(hsv, low1, high1, mask1);
                 cv.inRange(hsv, low2, high2, mask2);
-                cv.add(mask1, mask2, mask); // 2つのマスクを合成
+                cv.add(mask1, mask2, mask);
 
-                // 4. マスク（赤色部分）から輪郭を見つける
-                cv.findContours(mask, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+                // 輪郭抽出
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
+                cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
                 let maxArea = 0;
                 let bestContour = null;
 
-                // 5. 最大の輪郭（＝一番大きな赤い物体）を探す
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
@@ -133,85 +136,61 @@
                     }
                 }
 
-                // 6. 最大の輪郭が見つかったら、座標を計算して送信
-                if (bestContour) {
-                    // 輪郭を囲む四角形（Bounding Box）を取得
+                if (bestContour && maxArea > 300) { // ノイズ除去
                     let rect = cv.boundingRect(bestContour);
-                    
-                    // 四角形を元の映像(src)に緑色で描画する
-                    let p1 = new cv.Point(rect.x, rect.y);
-                    let p2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
-                    cv.rectangle(src, p1, p2, [0, 255, 0, 255], 2); // [G, B, R, A]
+                    // 緑の枠を描画
+                    cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 2);
 
-                    // 中心座標を計算
+                    // 中心座標計算 & 送信
                     let centerX = rect.x + rect.width / 2;
                     let centerY = rect.y + rect.height / 2;
                     
-                    // 座標を 0〜255 の範囲に正規化する (マイコンで扱いやすくするため)
                     let normX = Math.round((centerX / canvas.width) * 255);
                     let normY = Math.round((centerY / canvas.height) * 255);
                     
-                    // [x, y] の 2バイトの配列を作成
-                    let dataArray = new Uint8Array([normX, normY]);
-                    
-                    // BLE で送信する
-                    sendBleData(dataArray); // 変更点！
+                    // エラー無視して送信
+                    sendBleData(new Uint8Array([normX, normY])).catch(e => {});
                 }
 
-                // 7. 処理結果の画像 (src) を canvas に表示
+                // 結果を表示
                 cv.imshow('canvas', src);
 
-            }, 1000 / FPS);
+                // メモリ解放 (これ重要！忘れるとブラウザが重くなります)
+                src.delete(); hsv.delete(); mask.delete(); mask1.delete(); mask2.delete(); contours.delete(); hierarchy.delete();
+
+            } catch (err) {
+                console.error("処理エラー:", err);
+            }
+            
+            // 次のフレームへ
+            requestAnimationFrame(processVideo);
         }
 
-
-        // --- 3. Bluetooth (BLE) に接続する処理 ---
-        // (ここは前回とほぼ同じ)
+        // --- 3. Bluetooth接続 ---
         connectButton.onclick = async () => {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
-
             try {
-                console.log("BLE デバイスのスキャンを開始します...");
                 bleDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{ services: [SERVICE_UUID] }],
+                    // フィルターなしで全デバイス表示（接続トラブル回避のため）
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
                 });
-
-                console.log("デバイスに接続中:", bleDevice.name);
                 const server = await bleDevice.gatt.connect();
-
-                console.log("GATT サービスを取得中...");
                 const service = await server.getPrimaryService(SERVICE_UUID);
-
-                console.log("GATT 特性 (Characteristic) を取得中...");
                 bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-                console.log("接続完了！データを送信できます。");
-                alert(bleDevice.name + " に接続しました。");
-
+                alert("接続完了！");
             } catch (err) {
-                console.error("Bluetooth 接続に失敗しました:", err);
-                alert("Bluetooth 接続に失敗しました。");
+                console.error(err);
+                alert("接続失敗: " + err);
             }
         };
 
-        // --- 4. データを送信する関数 ---
-        // (単一の数値ではなく、バイト配列 [Uint8Array] を送るように変更)
         async function sendBleData(dataArray) {
-            if (!bleCharacteristic) {
-                // console.warn("BLE が接続されていません。"); // ログが多すぎると重くなる
-                return;
-            }
-            
-            // dataArray は Uint8Array である必要があります
-            try {
+            if (bleCharacteristic) {
                 await bleCharacteristic.writeValue(dataArray.buffer);
-                console.log("データを送信しました:", dataArray);
-            } catch (err) {
-                console.error("データ送信エラー:", err);
             }
         }
-        
     </script>
 </body>
 </html>
