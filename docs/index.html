@@ -81,7 +81,7 @@
             }
         };
 
-        // --- 2. 画像処理ループ (drawImage方式) ---
+// --- 2. 画像処理ループ (修正版：BindingError対策) ---
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) {
@@ -89,36 +89,42 @@
                     return;
                 }
 
-                // ★ここが修正ポイント！ cap.read() を使いません ★
-                // 1. カメラ映像(640x480かも)を、Canvas(320x240)に縮小して描画
+                // 1. 画像取り込み
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                // 2. Canvasから画像データを吸い出す
                 let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 
-                // 3. OpenCVのMatを作成 (毎回作ってもJSなら意外と大丈夫ですが、最適化するなら外に出します)
+                // OpenCVのMatを作成
                 let src = cv.matFromImageData(imgData);
                 let hsv = new cv.Mat();
                 let mask = new cv.Mat();
-                
-                // --- ここから画像処理 ---
-                cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); // RGBへ
-                cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);  // HSVへ
-
-                // 赤色の検出範囲
-                let low1  = new cv.Scalar(0,  30, 50); 
-                let high1 = new cv.Scalar(20, 255, 255);
-
-                // 範囲2：紫〜赤
-                // 色相(H)を140からにして、ピンク・マゼンタ系も全部拾います
-                let low2  = new cv.Scalar(140, 30, 50); 
-                let high2 = new cv.Scalar(180, 255, 255);
-                
                 let mask1 = new cv.Mat();
                 let mask2 = new cv.Mat();
 
-                cv.inRange(hsv, low1, high1, mask1);
-                cv.inRange(hsv, low2, high2, mask2);
+                // HSV変換
+                cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+                cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+
+                // --- ★ここが修正ポイント！ ---
+                // Scalar（ただの数値）を、Mat（画像データ）に変換してから inRange に渡します
+                
+                // 範囲1：オレンジ〜赤
+                let low1Scalar = new cv.Scalar(0, 30, 50);
+                let high1Scalar = new cv.Scalar(20, 255, 255);
+                
+                // 範囲2：ピンク〜赤
+                let low2Scalar = new cv.Scalar(140, 30, 50);
+                let high2Scalar = new cv.Scalar(180, 255, 255);
+
+                // ★★ Scalar を Mat に変換！ ★★
+                // (画像のサイズと同じ大きさの「真っ赤な画像」などを一時的に作ります)
+                let low1Mat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), low1Scalar);
+                let high1Mat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), high1Scalar);
+                let low2Mat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), low2Scalar);
+                let high2Mat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), high2Scalar);
+
+                // inRange には Mat を渡す
+                cv.inRange(hsv, low1Mat, high1Mat, mask1);
+                cv.inRange(hsv, low2Mat, high2Mat, mask2);
                 cv.add(mask1, mask2, mask);
 
                 // 輪郭抽出
@@ -138,33 +144,35 @@
                     }
                 }
 
-                if (bestContour && maxArea > 20) { // ノイズ除去
+                if (bestContour && maxArea > 20) { // 小さいゴミも拾うように 20 に設定
                     let rect = cv.boundingRect(bestContour);
-                    // 緑の枠を描画
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 2);
 
-                    // 中心座標計算 & 送信
+                    // 座標計算 & 送信
                     let centerX = rect.x + rect.width / 2;
                     let centerY = rect.y + rect.height / 2;
-                    
                     let normX = Math.round((centerX / canvas.width) * 255);
                     let normY = Math.round((centerY / canvas.height) * 255);
                     
-                    // エラー無視して送信
                     sendBleData(new Uint8Array([normX, normY])).catch(e => {});
                 }
 
-                // 結果を表示
-                cv.imshow('canvas', mask);
+                // 結果を表示（デバッグ用に mask を表示してもOK）
+                cv.imshow('canvas', src); 
+                // cv.imshow('canvas', mask); // ← 真っ黒画面で確認したい時はこちら
 
-                // メモリ解放 (これ重要！忘れるとブラウザが重くなります)
-                src.delete(); hsv.delete(); mask.delete(); mask1.delete(); mask2.delete(); contours.delete(); hierarchy.delete();
+                // ★★ お掃除（メモリ解放）これ超重要 ★★
+                // 作ったMatを全部消さないとブラウザがクラッシュします
+                src.delete(); hsv.delete(); 
+                mask.delete(); mask1.delete(); mask2.delete(); 
+                contours.delete(); hierarchy.delete();
+                // 新しく作ったMatも忘れずに消す！
+                low1Mat.delete(); high1Mat.delete(); low2Mat.delete(); high2Mat.delete();
 
             } catch (err) {
                 console.error("処理エラー:", err);
             }
             
-            // 次のフレームへ
             requestAnimationFrame(processVideo);
         }
 
