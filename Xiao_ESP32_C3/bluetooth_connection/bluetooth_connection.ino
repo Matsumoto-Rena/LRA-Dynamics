@@ -31,29 +31,25 @@ class MyServerCallbacks: public BLEServerCallbacks {
 
 // ブラウザからの書き込み(Write)イベントを処理するコールバック
 class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      // 受信したデータを取得
+
+  void onWrite(BLECharacteristic *pCharacteristic) {
       String value = pCharacteristic->getValue();
 
-      // シリアルモニタに受信データを表示
-      Serial.print("ブラウザからデータを受信: ");
-      if (value.length() > 0) {
-        for (int i = 0; i < value.length(); i++) {
-          Serial.print((int)value[i]); // 10進数の値として表示
-          Serial.print(" ");
-        }
-        Serial.println();
-
-        // TODO: ここで受信データに応じた処理を実行する
-        // 例: 76 ('L') を受信したら LED を点灯、など
-        // if ((int)value[0] == 76) {
-        //   digitalWrite(LED_BUILTIN, HIGH);
-        // }
-        
-      } else {
-        Serial.println("データが空です");
+      if (value.length() >= 2) {
+          // 1バイト目: 正規化された X 座標 (0-255)
+          int normX = (int)value[0];
+          // 2バイト目: 正規化された Y 座標 (0-255)
+          int normY = (int)value[1];
+          
+          Serial.print("受信 (X, Y): ");
+          Serial.print(normX);
+          Serial.print(", ");
+          Serial.println(normY);
+          
+          // TODO: normX, normY の値を使ってモーターなどを制御する
       }
-    }
+  }
+  
 };
 
 

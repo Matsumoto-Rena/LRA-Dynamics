@@ -62,19 +62,20 @@
             }
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true, audio: false
+                    video: true, 
+                    audio: false
                 });
                 video.srcObject = stream;
                 
+                await video.play(); 
+
                 // video のメタデータがロードされたら、canvas のサイズを合わせる
-                video.onloadedmetadata = () => {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    console.log(`カメラ解像度: ${canvas.width} x ${canvas.height}`);
-                    
-                    // 処理ループをスタート
-                    startProcessing();
-                };
+                // (念のため onloadedmetadata ではなく、直接実行でも動くことが多いですが、このままでOK)
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                console.log(`カメラ解像度: ${canvas.width} x ${canvas.height}`);
+                
+                startProcessing();
 
             } catch (err) {
                 console.error("カメラの起動に失敗しました:", err);
