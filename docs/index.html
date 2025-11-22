@@ -107,12 +107,12 @@
                 // --- ★ここが修正ポイント！ ---
                 // Scalar（ただの数値）を、Mat（画像データ）に変換してから inRange に渡します
                 
-                // 範囲1：オレンジ〜赤
-                let low1Scalar = new cv.Scalar(0, 80, 50); 
+                // 範囲1：濃いオレンジ〜濃い赤
+                let low1Scalar = new cv.Scalar(0, 120, 80); 
                 let high1Scalar = new cv.Scalar(15, 255, 255);
 
-                // 範囲2：濃いピンク〜赤
-                let low2Scalar = new cv.Scalar(160, 80, 50); 
+                // 範囲2：濃いピンク〜濃い赤
+                let low2Scalar = new cv.Scalar(160, 120, 80); 
                 let high2Scalar = new cv.Scalar(180, 255, 255);
 
                 // ★★ Scalar を Mat に変換！ ★★
