@@ -3,46 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webcam & Web Bluetooth</title>
+    <title>OpenCV.js & Web Bluetooth</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; }
-        video { border: 2px solid #333; width: 80%; max-width: 600px; }
-        canvas { display: none; } /* 画像処理用に裏で待機 */
-        button { font-size: 1.2em; padding: 10px 20px; margin-top: 15px; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f0f0; }
+        /* video は裏で動かすため非表示に */
+        video { display: none; }
+        /* canvas に枠線をつけて、video の代わりに見せる */
+        canvas { border: 2px solid #333; width: 80%; max-width: 600px; background-color: #fff; }
+        button { font-size: 1.2em; padding: 10px 20px; margin: 10px; }
+        #loading { font-size: 1.1em; color: #555; }
     </style>
 </head>
 <body>
-    <h1>Webcam → Bluetooth</h1>
-    
+    <h1>Webcam → OpenCV.js → Bluetooth</h1>
+
     <video id="webcam" autoplay playsinline></video>
-    
     <canvas id="canvas"></canvas>
 
     <div>
-        <button id="startButton">① カメラを起動</button>
+        <button id="startButton">① カメラを起動 & 処理開始</button>
         <button id="connectButton">② Bluetooth 接続</button>
     </div>
+    
+    <div id="loading">OpenCV.js をロード中です...</div>
+
+    <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
     <script>
         const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
         const startButton = document.getElementById('startButton');
         const connectButton = document.getElementById('connectButton');
+        const loading = document.getElementById('loading');
 
-        let bleDevice; // 接続したデバイスを保持する変数
-        let bleCharacteristic; // データを書き込む「特性」を保持する変数
+        let bleDevice;
+        let bleCharacteristic;
+        let cv; // OpenCV オブジェクトを保持するグローバル変数
 
-        // --- 1. カメラを起動する処理 ---
+        // --- OpenCV.js がロード完了したら呼ばれる関数 ---
+        // (script タグに async がついているため、この onload 処理が必要)
+        window.onload = () => {
+            if (window.cv) {
+                cv = window.cv; // グローバル変数にセット
+                loading.textContent = "OpenCV.js ロード完了！";
+                console.log("OpenCV.js ロード完了");
+            } else {
+                // async ロードがまだ終わっていない場合のリトライ
+                setTimeout(window.onload, 500);
+            }
+        };
+
+        // --- 1. カメラを起動 & 処理開始 ---
         startButton.onclick = async () => {
+            if (!cv) {
+                alert("OpenCV.js がまだロード中です。少し待って再試行してください。");
+                return;
+            }
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: false
+                    video: true, audio: false
                 });
                 video.srcObject = stream;
-                console.log("カメラを起動しました");
                 
-                // TODO: ここに OpenCV.js などの画像処理ループを将来追加する
-                // (例: 100ms ごとに video の内容を canvas に転写して処理する)
+                // video のメタデータがロードされたら、canvas のサイズを合わせる
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    console.log(`カメラ解像度: ${canvas.width} x ${canvas.height}`);
+                    
+                    // 処理ループをスタート
+                    startProcessing();
+                };
 
             } catch (err) {
                 console.error("カメラの起動に失敗しました:", err);
@@ -50,24 +82,97 @@
             }
         };
 
-        // --- 2. Bluetooth (BLE) に接続する処理 ---
-        connectButton.onclick = async () => {
-            // !! 注意 !!
-            // 'service-uuid' と 'characteristic-uuid' は、
-            // あなたがマイコン(ESP32)側に書き込むコードと
-            // 完全に一致させる必要があります。
+        // --- 2. OpenCV.js の処理ループ ---
+        function startProcessing() {
+            // OpenCV で使う Mat (行列＝画像) オブジェクトを初期化
+            let src = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC4);
+            let hsv = new cv.Mat();
+            let mask = new cv.Mat();
+            let mask1 = new cv.Mat();
+            let mask2 = new cv.Mat();
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
 
-            // 例: ESP32 側で決めた UUID (これはダミーです)
+            // video の映像を canvas に書き込むためのラッパー
+            const cap = new cv.VideoCapture(video);
+
+            const FPS = 30; // 1秒間に30回処理する
+            setInterval(() => {
+                // 1. video から1フレーム読み込む
+                cap.read(src); // video の内容を src (Mat) に書き込む
+
+                // 2. RGB から HSV 色空間に変換
+                cv.cvtColor(src, hsv, cv.COLOR_RGB2HSV);
+
+                // 3. 「赤色」の範囲でマスク（二値化）する
+                // 赤は HSV で 0 付近と 180 付近に分かれるため、2つの範囲を取る
+                let low1  = new cv.Scalar(0,   120, 70);
+                let high1 = new cv.Scalar(10,  255, 255);
+                let low2  = new cv.Scalar(170, 120, 70);
+                let high2 = new cv.Scalar(180, 255, 255);
+
+                cv.inRange(hsv, low1, high1, mask1);
+                cv.inRange(hsv, low2, high2, mask2);
+                cv.add(mask1, mask2, mask); // 2つのマスクを合成
+
+                // 4. マスク（赤色部分）から輪郭を見つける
+                cv.findContours(mask, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+
+                let maxArea = 0;
+                let bestContour = null;
+
+                // 5. 最大の輪郭（＝一番大きな赤い物体）を探す
+                for (let i = 0; i < contours.size(); ++i) {
+                    let cnt = contours.get(i);
+                    let area = cv.contourArea(cnt, false);
+                    if (area > maxArea) {
+                        maxArea = area;
+                        bestContour = cnt;
+                    }
+                }
+
+                // 6. 最大の輪郭が見つかったら、座標を計算して送信
+                if (bestContour) {
+                    // 輪郭を囲む四角形（Bounding Box）を取得
+                    let rect = cv.boundingRect(bestContour);
+                    
+                    // 四角形を元の映像(src)に緑色で描画する
+                    let p1 = new cv.Point(rect.x, rect.y);
+                    let p2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+                    cv.rectangle(src, p1, p2, [0, 255, 0, 255], 2); // [G, B, R, A]
+
+                    // 中心座標を計算
+                    let centerX = rect.x + rect.width / 2;
+                    let centerY = rect.y + rect.height / 2;
+                    
+                    // 座標を 0〜255 の範囲に正規化する (マイコンで扱いやすくするため)
+                    let normX = Math.round((centerX / canvas.width) * 255);
+                    let normY = Math.round((centerY / canvas.height) * 255);
+                    
+                    // [x, y] の 2バイトの配列を作成
+                    let dataArray = new Uint8Array([normX, normY]);
+                    
+                    // BLE で送信する
+                    sendBleData(dataArray); // 変更点！
+                }
+
+                // 7. 処理結果の画像 (src) を canvas に表示
+                cv.imshow('canvas', src);
+
+            }, 1000 / FPS);
+        }
+
+
+        // --- 3. Bluetooth (BLE) に接続する処理 ---
+        // (ここは前回とほぼ同じ)
+        connectButton.onclick = async () => {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
 
             try {
                 console.log("BLE デバイスのスキャンを開始します...");
                 bleDevice = await navigator.bluetooth.requestDevice({
-                    // フィルター: 指定したサービス UUID を持つデバイスのみ表示
                     filters: [{ services: [SERVICE_UUID] }],
-                    // オプショナル: 名前でフィルタリングも可能
-                    // filters: [{ name: 'ESP32_MyDevice' }]
                 });
 
                 console.log("デバイスに接続中:", bleDevice.name);
@@ -88,31 +193,22 @@
             }
         };
 
-        // --- 3. (参考) データを送信する関数の例 ---
-        // この関数を画像処理の結果が出たときに呼び出す
-        async function sendBleData(data) {
+        // --- 4. データを送信する関数 ---
+        // (単一の数値ではなく、バイト配列 [Uint8Array] を送るように変更)
+        async function sendBleData(dataArray) {
             if (!bleCharacteristic) {
-                console.warn("BLE が接続されていません。");
+                // console.warn("BLE が接続されていません。"); // ログが多すぎると重くなる
                 return;
             }
             
-            // data は ArrayBuffer である必要があります
-            // 例: 'L' という文字 (ASCII: 76) を送る
-            // const dataToSend = new Uint8Array([76]); 
-            
-            // 例: 0〜255 の数値を送る
-            const dataToSend = new Uint8Array([data]); 
-
+            // dataArray は Uint8Array である必要があります
             try {
-                await bleCharacteristic.writeValue(dataToSend.buffer);
-                console.log("データを送信しました:", data);
+                await bleCharacteristic.writeValue(dataArray.buffer);
+                console.log("データを送信しました:", dataArray);
             } catch (err) {
                 console.error("データ送信エラー:", err);
             }
         }
-        
-        // --- (参考) 接続解除の処理 ---
-        // (ページを閉じるかリロードすると自動で切れます)
         
     </script>
 </body>
