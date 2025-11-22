@@ -106,9 +106,12 @@
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);  // HSVへ
 
                 // 赤色の検出範囲
-                let low1  = new cv.Scalar(0,   30, 30); 
-                let high1 = new cv.Scalar(15,  255, 255); // 上限も少し広げた(10->15)
-                let low2  = new cv.Scalar(165, 30, 30); // 下限も少し広げた(170->165)
+                let low1  = new cv.Scalar(0,  30, 50); 
+                let high1 = new cv.Scalar(20, 255, 255);
+
+                // 範囲2：紫〜赤
+                // 色相(H)を140からにして、ピンク・マゼンタ系も全部拾います
+                let low2  = new cv.Scalar(140, 30, 50); 
                 let high2 = new cv.Scalar(180, 255, 255);
                 
                 let mask1 = new cv.Mat();
