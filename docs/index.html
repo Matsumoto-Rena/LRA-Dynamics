@@ -138,9 +138,26 @@
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
-                    if (area > maxArea) {
-                        maxArea = area;
-                        bestContour = cnt;
+                    
+                    // 1. まず面積が小さすぎるゴミは無視
+                    if (area < 100) continue;
+
+                    // 2. 周囲の長さを計算
+                    let perimeter = cv.arcLength(cnt, true);
+                    if (perimeter === 0) continue;
+
+                    // 3. 円形度を計算 (4 * π * 面積 / 周囲の長さの2乗)
+                    let circularity = (4 * Math.PI * area) / (perimeter * perimeter);
+
+                    // ★ここが重要★
+                    // 「一番大きくて」かつ「円形度が 0.75 以上（丸っぽい）」ものだけ選ぶ
+                    // (PCのような四角い物体は 0.78 以下になることが多いので、0.8〜0.85くらいが理想ですが、
+                    //  カメラの歪みを考慮して一旦 0.75 で試します)
+                    if (circularity > 0.75) { 
+                        if (area > maxArea) {
+                            maxArea = area;
+                            bestContour = cnt;
+                        }
                     }
                 }
 
