@@ -149,6 +149,13 @@
                     let normY = Math.round((centerY / canvas.height) * 255);
                     
                     sendBleData(new Uint8Array([normX, normY])).catch(e => {});
+
+                    // 表示する文字列を作る (例: "X: 128, Y: 100")
+                    let text = `X: ${normX}, Y: ${normY}`;
+                    
+                    // 文字を描画する
+                    // cv.putText(画像, 文字列, 位置(x,y), フォント, サイズ, 色(RGBA), 太さ);
+                    cv.putText(src, text, new cv.Point(10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, [255, 255, 255, 255], 2);
                 }
 
                 cv.imshow('canvas', src);
