@@ -81,7 +81,7 @@
             }
         };
 
-// --- 2. 画像処理ループ (修正版：BindingError対策) ---
+        // --- 2. 画像処理ループ (修正版：BindingError対策) ---
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) {
@@ -89,43 +89,32 @@
                     return;
                 }
 
-                // 1. 画像取り込み
+                // 画像取り込み
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // OpenCVのMatを作成
                 let src = cv.matFromImageData(imgData);
                 let hsv = new cv.Mat();
                 let mask = new cv.Mat();
-                let mask1 = new cv.Mat();
-                let mask2 = new cv.Mat();
 
                 // HSV変換
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-                // --- ★ここが修正ポイント！ ---
-                // Scalar（ただの数値）を、Mat（画像データ）に変換してから inRange に渡します
-                
-                // 範囲1：濃いオレンジ〜濃い赤
-                let low1Scalar = new cv.Scalar(0, 120, 80); 
-                let high1Scalar = new cv.Scalar(15, 255, 255);
+                // --- 🔵 青色の設定 ---
+                // 赤のときのような「2つの範囲」は不要です！1つでOK。
 
-                // 範囲2：濃いピンク〜濃い赤
-                let low2Scalar = new cv.Scalar(160, 120, 80); 
-                let high2Scalar = new cv.Scalar(180, 255, 255);
+                // H (色相): 100(水色) 〜 140(紫に近い青) を狙います
+                // S (彩度): 100 (白っぽい青は無視、濃い青だけ)
+                // V (明度): 50 (暗すぎなければOK)
+                let lowScalar = new cv.Scalar(100, 100, 50);
+                let highScalar = new cv.Scalar(140, 255, 255);
 
-                // ★★ Scalar を Mat に変換！ ★★
-                // (画像のサイズと同じ大きさの「真っ赤な画像」などを一時的に作ります)
-                let low1Mat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), low1Scalar);
-                let high1Mat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), high1Scalar);
-                let low2Mat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), low2Scalar);
-                let high2Mat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), high2Scalar);
+                // Scalar を Mat に変換
+                let lowMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), lowScalar);
+                let highMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), highScalar);
 
-                // inRange には Mat を渡す
-                cv.inRange(hsv, low1Mat, high1Mat, mask1);
-                cv.inRange(hsv, low2Mat, high2Mat, mask2);
-                cv.add(mask1, mask2, mask);
+                // 青色だけを抽出（1行で済みます！）
+                cv.inRange(hsv, lowMat, highMat, mask);
 
                 // 輪郭抽出
                 let contours = new cv.MatVector();
@@ -134,38 +123,26 @@
 
                 let maxArea = 0;
                 let bestContour = null;
+                let totalPixels = canvas.width * canvas.height;
 
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
-                    
-                    // 1. まず面積が小さすぎるゴミは無視
-                    if (area < 100) continue;
 
-                    // 2. 周囲の長さを計算
-                    let perimeter = cv.arcLength(cnt, true);
-                    if (perimeter === 0) continue;
+                    // ノイズ除去 & 巨大すぎる背景除去
+                    if (area < 20) continue;
+                    if (area > totalPixels / 4) continue;
 
-                    // 3. 円形度を計算 (4 * π * 面積 / 周囲の長さの2乗)
-                    let circularity = (4 * Math.PI * area) / (perimeter * perimeter);
-
-                    // ★ここが重要★
-                    // 「一番大きくて」かつ「円形度が 0.75 以上（丸っぽい）」ものだけ選ぶ
-                    // (PCのような四角い物体は 0.78 以下になることが多いので、0.8〜0.85くらいが理想ですが、
-                    //  カメラの歪みを考慮して一旦 0.75 で試します)
-                    if (circularity > 0.75) { 
-                        if (area > maxArea) {
-                            maxArea = area;
-                            bestContour = cnt;
-                        }
+                    if (area > maxArea) {
+                        maxArea = area;
+                        bestContour = cnt;
                     }
                 }
 
-                if (bestContour && maxArea > 20) { // 小さいゴミも拾うように 20 に設定
+                if (bestContour) {
                     let rect = cv.boundingRect(bestContour);
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 2);
 
-                    // 座標計算 & 送信
                     let centerX = rect.x + rect.width / 2;
                     let centerY = rect.y + rect.height / 2;
                     let normX = Math.round((centerX / canvas.width) * 255);
@@ -174,17 +151,12 @@
                     sendBleData(new Uint8Array([normX, normY])).catch(e => {});
                 }
 
-                // 結果を表示（デバッグ用に mask を表示してもOK）
-                cv.imshow('canvas', src); 
-                // cv.imshow('canvas', mask); // ← 真っ黒画面で確認したい時はこちら
+                cv.imshow('canvas', src);
 
-                // ★★ お掃除（メモリ解放）これ超重要 ★★
-                // 作ったMatを全部消さないとブラウザがクラッシュします
-                src.delete(); hsv.delete(); 
-                mask.delete(); mask1.delete(); mask2.delete(); 
+                // メモリ解放 (数が減ってスッキリ！)
+                src.delete(); hsv.delete(); mask.delete();
                 contours.delete(); hierarchy.delete();
-                // 新しく作ったMatも忘れずに消す！
-                low1Mat.delete(); high1Mat.delete(); low2Mat.delete(); high2Mat.delete();
+                lowMat.delete(); highMat.delete();
 
             } catch (err) {
                 console.error("処理エラー:", err);
