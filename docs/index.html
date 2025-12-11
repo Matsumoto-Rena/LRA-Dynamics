@@ -3,18 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blue Tracking (Wide)</title>
+    <title>Blue Tracking (4:3 Max FOV)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         video { display: none; }
         
-        /* 画面いっぱいに表示するためのCSS */
         canvas { 
             border: 4px solid #555; 
             background-color: #000;
-            width: 100%;       /* スマホの横幅いっぱい */
-            max-width: 800px;  /* PCなら800pxまで大きく表示 */
-            height: auto;      /* アスペクト比を維持 */
+            width: 100%;       
+            max-width: 800px; 
+            height: auto;      
             border-radius: 8px;
         }
         
@@ -23,7 +22,7 @@
     </style>
 </head>
 <body>
-    <h1>Blue Tracking (Wide)</h1>
+    <h1>Blue Tracking (4:3 Max FOV)</h1>
 
     <div id="loading">OpenCV.js ロード中...</div>
     
@@ -43,8 +42,7 @@
         let bleDevice, bleCharacteristic;
         let cv; 
 
-        // 内部処理用の横幅 (画質決定)
-        // 640pxあれば十分きれいに認識できます
+        // 処理用の解像度
         const PROCESS_WIDTH = 640; 
 
         window.onload = () => {
@@ -74,11 +72,12 @@
         async function startCamera() {
             if (!cv) { alert("OpenCV.js ロード中..."); return; }
             try {
-                // ワイド画角(16:9など)を優先的に取得
+                // ★修正ポイント：ここを 4:3 の比率に戻す！
+                // これでカメラセンサーの上下いっぱいまで使えます
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 } 
+                        width: { ideal: 800 },  // 800x600 (4:3) を希望
+                        height: { ideal: 600 } 
                     }, 
                     audio: false 
                 });
@@ -98,21 +97,17 @@
                     return;
                 }
 
-                // カメラ本来の縦横比を取得
+                // カメラの比率に合わせてCanvasサイズを決定
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
                 
                 if (vw > 0 && vh > 0) {
-                    // アスペクト比を維持したまま、横幅を PROCESS_WIDTH に合わせる
                     let aspect = vh / vw;
                     canvas.width = PROCESS_WIDTH;
                     canvas.height = PROCESS_WIDTH * aspect;
-
-                    // 切り抜きなしで、全体を描画！
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 }
 
-                // OpenCV処理
                 let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 let src = cv.matFromImageData(imgData);
                 let hsv = new cv.Mat();
@@ -121,7 +116,7 @@
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-                // 青色設定 (H:100-140, S:60-255, V:20-255)
+                // 青色設定
                 let lowScalar = new cv.Scalar(100, 60, 20); 
                 let highScalar = new cv.Scalar(140, 255, 255);
                 let lowMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), lowScalar);
@@ -135,16 +130,13 @@
 
                 let maxArea = 0;
                 let bestContour = null;
-                // 画面全体の面積
                 let totalPixels = canvas.width * canvas.height;
 
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
-
                     if (area < 20) continue;
                     if (area > totalPixels / 4) continue;
-
                     if (area > maxArea) {
                         maxArea = area;
                         bestContour = cnt;
@@ -158,7 +150,6 @@
                     let centerX = rect.x + rect.width / 2;
                     let centerY = rect.y + rect.height / 2;
                     
-                    // 0〜255 に正規化 (長方形でも計算式は同じでOK)
                     let normX = Math.round((centerX / canvas.width) * 255);
                     let normY = Math.round((centerY / canvas.height) * 255);
                     
