@@ -1,38 +1,6 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenCV.js & Web Bluetooth</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f0f0; }
-        /* video は裏で動かすため非表示に */
-        video { display: none; }
-        /* canvas に枠線をつけて、video の代わりに見せる */
-        canvas { border: 2px solid #333; width: 80%; max-width: 600px; background-color: #fff; }
-        button { font-size: 1.2em; padding: 10px 20px; margin: 10px; }
-        #loading { font-size: 1.1em; color: #555; }
-    </style>
-</head>
-<body>
-    <h1>Webcam → OpenCV.js → Bluetooth</h1>
-
-    <video id="webcam" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
-
-    <div>
-        <button id="startButton">① カメラを起動 & 処理開始</button>
-        <button id="connectButton">② Bluetooth 接続</button>
-    </div>
-    
-    <div id="loading">OpenCV.js をロード中です...</div>
-
-    <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-
-    <script>
+<script>
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
-        // willReadFrequently: true は画像処理を高速化するおまじないです
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
         const startButton = document.getElementById('startButton');
@@ -43,45 +11,34 @@
         let bleCharacteristic;
         let cv; 
 
-        // OpenCVロード待ち
         window.onload = () => {
             if (window.cv) {
                 cv = window.cv;
                 loading.textContent = "OpenCV.js ロード完了！";
-                console.log("OpenCV.js ロード完了");
             } else {
                 setTimeout(window.onload, 500);
             }
         };
 
-        // --- 1. カメラ起動 ---
         startButton.onclick = async () => {
             if (!cv) { alert("OpenCV.js ロード中..."); return; }
             try {
-                // カメラの解像度をリクエストしますが、無視されることもあります
+                // ★修正1: サイズ指定を削除して、カメラの最大視野を取得
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 320, height: 320 }, 
+                    video: true, 
                     audio: false 
                 });
                 video.srcObject = stream;
-                await video.play(); // 再生開始
+                await video.play(); 
 
-                // キャンバスのサイズを処理しやすいサイズ(320x240)に固定してしまう
-                canvas.width = 320;
-                canvas.height = 320;
-                
-                console.log(`処理解像度を ${canvas.width}x${canvas.height} に設定しました`);
-                
-                // 処理ループ開始
                 requestAnimationFrame(processVideo);
 
             } catch (err) {
-                console.error("カメラ起動エラー:", err);
-                alert("カメラ起動に失敗しました");
+                console.error(err);
+                alert("カメラ起動失敗");
             }
         };
 
-        // --- 2. 画像処理ループ (修正版：BindingError対策) ---
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) {
@@ -89,34 +46,32 @@
                     return;
                 }
 
-                // 画像取り込み
+                // ★修正2: 比率を保ったまま、横幅320pxにリサイズする
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                    const scale = 320 / video.videoWidth;
+                    canvas.width = 320;
+                    canvas.height = video.videoHeight * scale;
+                }
+
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
                 let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 let src = cv.matFromImageData(imgData);
                 let hsv = new cv.Mat();
                 let mask = new cv.Mat();
 
-                // HSV変換
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
                 // --- 🔵 青色の設定 ---
-                // 赤のときのような「2つの範囲」は不要です！1つでOK。
-
-                // H (色相): 100(水色) 〜 140(紫に近い青) を狙います
-                // S (彩度): 100 (白っぽい青は無視、濃い青だけ)
-                // V (明度): 50 (暗すぎなければOK)
                 let lowScalar = new cv.Scalar(100, 60, 20); 
                 let highScalar = new cv.Scalar(140, 255, 255);
 
-                // Scalar を Mat に変換
                 let lowMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), lowScalar);
                 let highMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), highScalar);
 
-                // 青色だけを抽出（1行で済みます！）
                 cv.inRange(hsv, lowMat, highMat, mask);
 
-                // 輪郭抽出
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
                 cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -129,7 +84,6 @@
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
 
-                    // ノイズ除去 & 巨大すぎる背景除去
                     if (area < 20) continue;
                     if (area > totalPixels / 4) continue;
 
@@ -150,17 +104,12 @@
                     
                     sendBleData(new Uint8Array([normX, normY])).catch(e => {});
 
-                    // 表示する文字列を作る (例: "X: 128, Y: 100")
                     let text = `X: ${normX}, Y: ${normY}`;
-                    
-                    // 文字を描画する
-                    // cv.putText(画像, 文字列, 位置(x,y), フォント, サイズ, 色(RGBA), 太さ);
-                    cv.putText(src, text, new cv.Point(10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, [255, 255, 255, 255], 2);
+                    cv.putText(src, text, new cv.Point(10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, [255, 255, 255, 255], 2);
                 }
 
                 cv.imshow('canvas', src);
 
-                // メモリ解放 (数が減ってスッキリ！)
                 src.delete(); hsv.delete(); mask.delete();
                 contours.delete(); hierarchy.delete();
                 lowMat.delete(); highMat.delete();
@@ -172,13 +121,11 @@
             requestAnimationFrame(processVideo);
         }
 
-        // --- 3. Bluetooth接続 ---
         connectButton.onclick = async () => {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
             try {
                 bleDevice = await navigator.bluetooth.requestDevice({
-                    // フィルターなしで全デバイス表示（接続トラブル回避のため）
                     acceptAllDevices: true,
                     optionalServices: [SERVICE_UUID]
                 });
@@ -198,5 +145,3 @@
             }
         }
     </script>
-</body>
-</html>
