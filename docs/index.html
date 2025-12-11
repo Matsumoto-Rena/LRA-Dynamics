@@ -6,9 +6,7 @@
     <title>Blue Tracking (Square)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f0f0; }
-        /* ビデオ本体は裏で動かすので隠す */
         video { display: none; }
-        /* Canvas（加工後の映像）だけを画面に見せる */
         canvas { border: 2px solid #333; background-color: #000; }
         button { font-size: 1.2em; padding: 10px 20px; margin: 10px; }
         #loading { font-size: 1.1em; color: #555; margin-bottom: 10px;}
@@ -18,9 +16,7 @@
     <h1>Blue Tracking (Square)</h1>
 
     <div id="loading">OpenCV.js ロード中...</div>
-    
     <canvas id="canvas"></canvas>
-    
     <video id="webcam" autoplay playsinline></video>
 
     <div>
@@ -31,20 +27,27 @@
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
     <script>
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        
-        const startButton = document.getElementById('startButton');
-        const connectButton = document.getElementById('connectButton');
-        const loading = document.getElementById('loading');
-
-        let bleDevice;
-        let bleCharacteristic;
+        // ★修正ポイント：ここでは変数の「名前」だけ決めておきます
+        let video, canvas, ctx;
+        let startButton, connectButton, loading;
+        let bleDevice, bleCharacteristic;
         let cv; 
 
-        // --- OpenCVロード完了待ち ---
+        // ページが全部読み込まれたら、初めて要素を取得します
         window.onload = () => {
+            // ここで中身を入れる！これならエラーになりません
+            video = document.getElementById('webcam');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            startButton = document.getElementById('startButton');
+            connectButton = document.getElementById('connectButton');
+            loading = document.getElementById('loading');
+
+            // ボタンのクリックイベントもここで設定
+            startButton.onclick = startCamera;
+            connectButton.onclick = connectBluetooth;
+
             waitForOpenCV();
         };
 
@@ -52,37 +55,29 @@
             if (window.cv && window.cv.Mat) {
                 cv = window.cv;
                 loading.textContent = "OpenCV.js 準備完了！";
-                console.log("OpenCV.js Loaded");
             } else {
                 setTimeout(waitForOpenCV, 500);
             }
         }
 
         // --- 1. カメラ起動 ---
-        startButton.onclick = async () => {
-            if (!cv) { alert("OpenCV.js をロード中です。少々お待ちください。"); return; }
+        async function startCamera() {
+            if (!cv) { alert("OpenCV.js ロード中..."); return; }
             try {
-                // ワイド画角(16:9など)を優先的に取得
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 } 
-                    }, 
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
                     audio: false 
                 });
                 video.srcObject = stream;
                 await video.play(); 
-
-                // 処理ループ開始
                 requestAnimationFrame(processVideo);
-
             } catch (err) {
-                console.error("カメラ起動エラー:", err);
-                alert("カメラの起動に失敗しました。\n" + err);
+                console.error(err);
+                alert("カメラ起動失敗: " + err);
             }
-        };
+        }
 
-        // --- 2. 画像処理ループ (正方形クロップ版) ---
+        // --- 2. 画像処理ループ ---
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) {
@@ -90,8 +85,8 @@
                     return;
                 }
 
-                // --- 正方形に切り抜く処理 ---
-                const size = 320; // 正方形のサイズ
+                // 正方形クロップ
+                const size = 320;
                 canvas.width = size;
                 canvas.height = size;
 
@@ -99,40 +94,29 @@
                 let vh = video.videoHeight;
                 
                 if (vw > 0 && vh > 0) {
-                    // 短い方の辺に合わせて切り抜くサイズを決める
                     let minDim = Math.min(vw, vh);
-                    // 中心から切り抜くための開始座標
                     let sx = (vw - minDim) / 2;
                     let sy = (vh - minDim) / 2;
-
-                    // 映像を切り抜いてCanvasに描画
                     ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, size, size);
                 }
 
-                // --- OpenCVによる画像処理 ---
+                // OpenCV処理
                 let imgData = ctx.getImageData(0, 0, size, size);
                 let src = cv.matFromImageData(imgData);
                 let hsv = new cv.Mat();
                 let mask = new cv.Mat();
 
-                // RGB -> HSV 変換
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-                // --- 🔵 青色の設定 (AtomS3などの発光体向け) ---
-                // H(色相): 100~140 (青)
-                // S(彩度): 60以上 (ある程度色がついていればOK)
-                // V(明度): 20以上 (発光体なら暗くても認識しやすい)
+                // 青色設定 (H:100-140, S:60-255, V:20-255)
                 let lowScalar = new cv.Scalar(100, 60, 20); 
                 let highScalar = new cv.Scalar(140, 255, 255);
-
                 let lowMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), lowScalar);
                 let highMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), highScalar);
 
-                // 二値化 (青いところだけ白くする)
                 cv.inRange(hsv, lowMat, highMat, mask);
 
-                // 輪郭抽出
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
                 cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -144,11 +128,8 @@
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
-
-                    // ノイズ除去 (小さすぎるゴミ & デカすぎる背景)
                     if (area < 20) continue;
                     if (area > totalPixels / 4) continue;
-
                     if (area > maxArea) {
                         maxArea = area;
                         bestContour = cnt;
@@ -156,43 +137,34 @@
                 }
 
                 if (bestContour) {
-                    // 緑の枠を描画
                     let rect = cv.boundingRect(bestContour);
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 2);
 
-                    // 中心座標の計算
                     let centerX = rect.x + rect.width / 2;
                     let centerY = rect.y + rect.height / 2;
-                    
-                    // 0〜255 に正規化
                     let normX = Math.round((centerX / size) * 255);
                     let normY = Math.round((centerY / size) * 255);
                     
-                    // Bluetooth送信
                     sendBleData(new Uint8Array([normX, normY])).catch(e => {});
 
-                    // 画面に文字を表示
                     let text = `X: ${normX}, Y: ${normY}`;
                     cv.putText(src, text, new cv.Point(10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, [255, 255, 255, 255], 2);
                 }
 
-                // 結果を表示
                 cv.imshow('canvas', src);
 
-                // メモリ解放 (必須！)
                 src.delete(); hsv.delete(); mask.delete();
                 contours.delete(); hierarchy.delete();
                 lowMat.delete(); highMat.delete();
 
             } catch (err) {
-                console.error("処理エラー:", err);
+                console.error(err);
             }
-            
             requestAnimationFrame(processVideo);
         }
 
-        // --- 3. Bluetooth 接続処理 ---
-        connectButton.onclick = async () => {
+        // --- 3. Bluetooth接続 ---
+        async function connectBluetooth() {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
             try {
@@ -208,7 +180,7 @@
                 console.error(err);
                 alert("接続失敗: " + err);
             }
-        };
+        }
 
         async function sendBleData(dataArray) {
             if (bleCharacteristic) {
