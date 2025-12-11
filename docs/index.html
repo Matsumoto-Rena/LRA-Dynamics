@@ -46,15 +46,23 @@
                     return;
                 }
 
-                // ★修正2: 比率を保ったまま、横幅320pxにリサイズする
-                if (video.videoWidth > 0 && video.videoHeight > 0) {
-                    const scale = 320 / video.videoWidth;
-                    canvas.width = 320;
-                    canvas.height = video.videoHeight * scale;
-                }
+                // ★修正1: 正方形のサイズを決める (320x320)
+                const size = 320;
+                canvas.width = size;
+                canvas.height = size;
 
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                // ★修正2: 映像の「真ん中」を切り抜く計算
+                // (Instagramのスクエア投稿みたいな感じです)
+                let vw = video.videoWidth;
+                let vh = video.videoHeight;
+                let minDim = Math.min(vw, vh); // 短い方の長さを基準にする
+                let sx = (vw - minDim) / 2;    // 横の切り取り開始位置
+                let sy = (vh - minDim) / 2;    // 縦の切り取り開始位置
+
+                // ctx.drawImage(映像, 切り取りX, 切り取りY, 切り取り幅, 切り取り高さ, 描画X, 描画Y, 描画幅, 描画高さ)
+                ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, size, size);
                 
+                // --- ここからは同じ ---
                 let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 let src = cv.matFromImageData(imgData);
                 let hsv = new cv.Mat();
