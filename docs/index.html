@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blue Tracking (Large Square)</title>
+    <title>Blue Tracking (Wide)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         video { display: none; }
         
-        /* ★修正: 画面を大きく見せるCSS */
+        /* 画面いっぱいに表示するためのCSS */
         canvas { 
             border: 4px solid #555; 
             background-color: #000;
-            width: 100%;        /* スマホなら横幅いっぱいに */
-            max-width: 640px;   /* PCなら最大640pxまで大きく表示 (以前は小さい固定でした) */
-            height: auto;       /* 正方形をキープ */
-            border-radius: 8px; /* 角を丸くしてカッコよく */
+            width: 100%;       /* スマホの横幅いっぱい */
+            max-width: 800px;  /* PCなら800pxまで大きく表示 */
+            height: auto;      /* アスペクト比を維持 */
+            border-radius: 8px;
         }
         
         button { font-size: 1.2em; padding: 12px 24px; margin: 10px; cursor: pointer; }
@@ -23,12 +23,11 @@
     </style>
 </head>
 <body>
-    <h1>Blue Tracking (Large Square)</h1>
+    <h1>Blue Tracking (Wide)</h1>
 
     <div id="loading">OpenCV.js ロード中...</div>
     
     <canvas id="canvas"></canvas>
-    
     <video id="webcam" autoplay playsinline></video>
 
     <div>
@@ -44,9 +43,9 @@
         let bleDevice, bleCharacteristic;
         let cv; 
 
-        // ★修正: 処理する解像度をアップ (320 -> 480)
-        // これで画質が良くなります（重すぎないギリギリのライン）
-        const PROCESS_SIZE = 480; 
+        // 内部処理用の横幅 (画質決定)
+        // 640pxあれば十分きれいに認識できます
+        const PROCESS_WIDTH = 640; 
 
         window.onload = () => {
             video = document.getElementById('webcam');
@@ -75,9 +74,12 @@
         async function startCamera() {
             if (!cv) { alert("OpenCV.js ロード中..."); return; }
             try {
-                // できるだけ高画質でカメラを取得
+                // ワイド画角(16:9など)を優先的に取得
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 } 
+                    }, 
                     audio: false 
                 });
                 video.srcObject = stream;
@@ -96,22 +98,22 @@
                     return;
                 }
 
-                // 内部の解像度を設定 (480x480)
-                canvas.width = PROCESS_SIZE;
-                canvas.height = PROCESS_SIZE;
-
+                // カメラ本来の縦横比を取得
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
                 
                 if (vw > 0 && vh > 0) {
-                    // 真ん中を正方形に切り抜く
-                    let minDim = Math.min(vw, vh);
-                    let sx = (vw - minDim) / 2;
-                    let sy = (vh - minDim) / 2;
-                    ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, PROCESS_SIZE, PROCESS_SIZE);
+                    // アスペクト比を維持したまま、横幅を PROCESS_WIDTH に合わせる
+                    let aspect = vh / vw;
+                    canvas.width = PROCESS_WIDTH;
+                    canvas.height = PROCESS_WIDTH * aspect;
+
+                    // 切り抜きなしで、全体を描画！
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 }
 
-                let imgData = ctx.getImageData(0, 0, PROCESS_SIZE, PROCESS_SIZE);
+                // OpenCV処理
+                let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 let src = cv.matFromImageData(imgData);
                 let hsv = new cv.Mat();
                 let mask = new cv.Mat();
@@ -133,13 +135,16 @@
 
                 let maxArea = 0;
                 let bestContour = null;
-                let totalPixels = PROCESS_SIZE * PROCESS_SIZE;
+                // 画面全体の面積
+                let totalPixels = canvas.width * canvas.height;
 
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
+
                     if (area < 20) continue;
-                    if (area > totalPixels / 4) continue; // 巨大すぎるノイズ対策
+                    if (area > totalPixels / 4) continue;
+
                     if (area > maxArea) {
                         maxArea = area;
                         bestContour = cnt;
@@ -148,19 +153,18 @@
 
                 if (bestContour) {
                     let rect = cv.boundingRect(bestContour);
-                    cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 3); // 枠線を太くした(3)
+                    cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 3);
 
                     let centerX = rect.x + rect.width / 2;
                     let centerY = rect.y + rect.height / 2;
                     
-                    // 0〜255 に正規化
-                    let normX = Math.round((centerX / PROCESS_SIZE) * 255);
-                    let normY = Math.round((centerY / PROCESS_SIZE) * 255);
+                    // 0〜255 に正規化 (長方形でも計算式は同じでOK)
+                    let normX = Math.round((centerX / canvas.width) * 255);
+                    let normY = Math.round((centerY / canvas.height) * 255);
                     
                     sendBleData(new Uint8Array([normX, normY])).catch(e => {});
 
                     let text = `X:${normX} Y:${normY}`;
-                    // 文字を大きく見やすく
                     cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                 }
 
