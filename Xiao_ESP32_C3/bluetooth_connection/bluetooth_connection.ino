@@ -32,24 +32,43 @@ class MyServerCallbacks: public BLEServerCallbacks {
 // ブラウザからの書き込み(Write)イベントを処理するコールバック
 class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
 
+  // 受信コールバックの一部
   void onWrite(BLECharacteristic *pCharacteristic) {
+      // std::string value = pCharacteristic->getValue(); // もしここがエラーなら String に戻してください
       String value = pCharacteristic->getValue();
 
-      if (value.length() >= 2) {
-          // 1バイト目: 正規化された X 座標 (0-255)
-          int normX = (int)value[0];
-          // 2バイト目: 正規化された Y 座標 (0-255)
-          int normY = (int)value[1];
-          
-          Serial.print("受信 (X, Y): ");
-          Serial.print(normX);
-          Serial.print(", ");
-          Serial.println(normY);
-          
-          // TODO: normX, normY の値を使ってモーターなどを制御する
+      if (value.length() == 3) {
+          // 1バイト目: モード (1:絶対, 2:相対)
+          int mode = (int)value[0];
+          // 2バイト目: X
+          int rawX = (int)value[1];
+          // 3バイト目: Y
+          int rawY = (int)value[2];
+
+          int finalX = 0;
+          int finalY = 0;
+
+          if (mode == 1) {
+              // --- モード1: 絶対座標 ---
+              // 0〜255 がそのまま座標
+              finalX = rawX;
+              finalY = rawY;
+              Serial.printf("絶対座標: X=%d, Y=%d\n", finalX, finalY);
+
+          } else if (mode == 2) {
+              // --- モード2: 相対座標 ---
+              // 127 が中心なので、引いて「移動量」に戻す
+              // 例: 受信127 -> 0 (停止)
+              // 例: 受信137 -> +10 (右へ)
+              finalX = rawX - 127;
+              finalY = rawY - 127;
+              Serial.printf("相対移動: dX=%d, dY=%d\n", finalX, finalY);
+          }
+
+          // ここでモーター制御などを行う
+          // controlMotor(finalX, finalY);
       }
   }
-  
 };
 
 

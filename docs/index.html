@@ -3,108 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blue Tracking (Multi-Mode)</title>
+    <title>Hybrid Controller</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
-        video { display: none; }
         
+        /* 映像表示エリア */
         canvas { 
-            border: 4px solid #555; 
-            background-color: #000;
-            width: 100%;       
-            max-width: 800px; 
-            height: auto;      
-            border-radius: 8px;
+            border: 4px solid #555; background-color: #000;
+            width: 100%; max-width: 640px; height: auto; border-radius: 8px;
         }
-        
-        .btn-group { margin: 20px 0; }
-        button { font-size: 1.1em; padding: 10px 20px; margin: 5px; cursor: pointer; border-radius: 5px; border: none; }
-        
-        /* ボタンの色分け */
-        .btn-start { background-color: #4CAF50; color: white; }
-        .btn-connect { background-color: #2196F3; color: white; }
-        .btn-mode { background-color: #FF9800; color: white; font-weight: bold;}
-        .btn-reset { background-color: #9E9E9E; color: white; }
+        video { display: none; }
 
-        #status { font-size: 1.2em; margin-bottom: 10px; color: #FF9800; min-height: 1.5em;}
-        #loading { font-size: 1.1em; color: #aaa; margin-bottom: 10px;}
+        /* ボタン共通 */
+        button { cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
+        .btn-sys { font-size: 1.1em; padding: 10px 20px; margin: 5px; background-color: #607D8B; color: white; }
+        
+        /* モード切替タブ */
+        .mode-tabs { margin: 20px 0; display: flex; justify-content: center; gap: 10px; }
+        .tab { padding: 10px 30px; font-size: 1.2em; opacity: 0.5; transition: 0.3s; background: #444; color: #fff;}
+        .tab.active { opacity: 1; background-color: #FF9800; transform: scale(1.1); box-shadow: 0 0 10px #FF9800;}
+
+        /* 十字キー (モード1用) */
+        #dpad-area { display: none; margin: 20px auto; width: 200px; height: 200px; position: relative; }
+        .d-btn { 
+            position: absolute; width: 60px; height: 60px; 
+            background: #444; color: white; font-size: 24px;
+            border-radius: 10px; user-select: none;
+        }
+        .d-btn:active { background: #FF9800; }
+        #btn-up    { top: 0; left: 70px; }
+        #btn-down  { bottom: 0; left: 70px; }
+        #btn-left  { top: 70px; left: 0; }
+        #btn-right { top: 70px; right: 0; }
+
+        #status { font-size: 1.2em; margin-bottom: 10px; color: #aaa; min-height: 1.5em; }
     </style>
 </head>
 <body>
-    <h1>Blue Tracking (Multi-Mode)</h1>
+    <h1>Hybrid Controller</h1>
+    <div id="status">準備中...</div>
 
-    <div id="loading">OpenCV.js ロード中...</div>
-    <div id="status">モード: 絶対座標 (0-255)</div>
-    
     <canvas id="canvas"></canvas>
     <video id="webcam" autoplay playsinline></video>
 
-    <div class="btn-group">
-        <button id="startButton" class="btn-start">① カメラ起動</button>
-        <button id="connectButton" class="btn-connect">② Bluetooth 接続</button>
+    <div>
+        <button id="startButton" class="btn-sys">① カメラ起動</button>
+        <button id="connectButton" class="btn-sys">② Bluetooth 接続</button>
     </div>
 
-    <div class="btn-group">
-        <button id="setOriginButton" class="btn-mode">📍 ここを原点にする (相対モード)</button>
-        <button id="resetModeButton" class="btn-reset">絶対座標に戻す</button>
+    <hr style="border-color: #444; margin: 20px;">
+
+    <div class="mode-tabs">
+        <button id="mode1Btn" class="tab active">Mode 1: 手動</button>
+        <button id="mode2Btn" class="tab">Mode 2: 自動(LRA)</button>
+    </div>
+
+    <div id="dpad-area">
+        <button id="btn-up" class="d-btn">▲</button>
+        <button id="btn-left" class="d-btn">◀</button>
+        <button id="btn-right" class="d-btn">▶</button>
+        <button id="btn-down" class="d-btn">▼</button>
     </div>
 
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
     <script>
+        // 通信プロトコル定数
+        const HEADER_MANUAL = 0x01; // モード1
+        const HEADER_AUTO   = 0x02; // モード2
+        
+        // 方向コード
+        const DIR_STOP  = 0;
+        const DIR_UP    = 1;
+        const DIR_DOWN  = 2;
+        const DIR_LEFT  = 3;
+        const DIR_RIGHT = 4;
+
         let video, canvas, ctx;
-        let startButton, connectButton, setOriginButton, resetModeButton;
-        let loading, statusText;
-        let bleDevice, bleCharacteristic;
+        let bleCharacteristic;
         let cv; 
 
-        const PROCESS_WIDTH = 640; 
-        
-        // ★追加: 通信プロトコルの定義
-        const MODE_ABS = 1;
-        const MODE_REL = 2;
-
-        let isRelativeMode = false;
-        let originX = 0;
-        let originY = 0;
-        let requestOriginReset = false; 
+        // 状態管理
+        let currentMode = 1; // 1 or 2
+        let originX = 0, originY = 0; // モード1開始時の原点
 
         window.onload = () => {
             video = document.getElementById('webcam');
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d', { willReadFrequently: true });
             
-            startButton = document.getElementById('startButton');
-            connectButton = document.getElementById('connectButton');
-            setOriginButton = document.getElementById('setOriginButton');
-            resetModeButton = document.getElementById('resetModeButton');
-            loading = document.getElementById('loading');
-            statusText = document.getElementById('status');
+            document.getElementById('startButton').onclick = startCamera;
+            document.getElementById('connectButton').onclick = connectBluetooth;
 
-            startButton.onclick = startCamera;
-            connectButton.onclick = connectBluetooth;
-            
-            setOriginButton.onclick = () => { requestOriginReset = true; };
-            resetModeButton.onclick = () => {
-                isRelativeMode = false;
-                statusText.textContent = "モード: 絶対座標 (0-255)";
-                statusText.style.color = "#FF9800";
-            };
+            // モード切替
+            document.getElementById('mode1Btn').onclick = () => setMode(1);
+            document.getElementById('mode2Btn').onclick = () => setMode(2);
 
+            // 十字キーイベント設定 (押したとき送信、離したとき停止)
+            setupDpad('btn-up',    DIR_UP);
+            setupDpad('btn-down',  DIR_DOWN);
+            setupDpad('btn-left',  DIR_LEFT);
+            setupDpad('btn-right', DIR_RIGHT);
+
+            setMode(1); // 初期はモード1
             waitForOpenCV();
         };
 
+        // 十字キーの設定関数
+        function setupDpad(id, code) {
+            const btn = document.getElementById(id);
+            // PC用 (マウス)
+            btn.onmousedown = () => sendManualCommand(code);
+            btn.onmouseup   = () => sendManualCommand(DIR_STOP);
+            btn.onmouseleave= () => sendManualCommand(DIR_STOP);
+            // スマホ用 (タッチ)
+            btn.ontouchstart= (e) => { e.preventDefault(); sendManualCommand(code); };
+            btn.ontouchend  = (e) => { e.preventDefault(); sendManualCommand(DIR_STOP); };
+        }
+
+        // モード切替処理
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('mode1Btn').className = mode === 1 ? 'tab active' : 'tab';
+            document.getElementById('mode2Btn').className = mode === 2 ? 'tab active' : 'tab';
+            
+            const status = document.getElementById('status');
+            const dpad = document.getElementById('dpad-area');
+
+            if (mode === 1) {
+                status.textContent = "モード1: 原点設定済。ボタンで操作してください。";
+                status.style.color = "#FF9800";
+                dpad.style.display = "block"; // 十字キー表示
+                
+                // ★ モード1に入った瞬間、現在の青丸位置を「原点」として記録する
+                // (processVideo内で latestX, latestY を参照してセット)
+                if (latestX !== null) {
+                    originX = latestX;
+                    originY = latestY;
+                    console.log(`原点設定: ${originX}, ${originY}`);
+                }
+            } else {
+                status.textContent = "モード2: 青丸の絶対座標を送信中...";
+                status.style.color = "#00E676";
+                dpad.style.display = "none";  // 十字キー非表示
+            }
+        }
+
+        // OpenCVロード待ち
         function waitForOpenCV() {
             if (window.cv && window.cv.Mat) {
                 cv = window.cv;
-                loading.textContent = "OpenCV.js 準備完了！";
+                document.getElementById('status').textContent = "システム準備完了";
             } else {
                 setTimeout(waitForOpenCV, 500);
             }
         }
 
+        // カメラ起動 (4:3 Max FOV)
         async function startCamera() {
-            if (!cv) { alert("OpenCV.js ロード中..."); return; }
+            if (!cv) return;
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
@@ -114,11 +171,15 @@
                 await video.play(); 
                 requestAnimationFrame(processVideo);
             } catch (err) {
-                console.error(err);
-                alert("カメラ起動失敗: " + err);
+                alert("カメラエラー: " + err);
             }
         }
 
+        // グローバル変数で最新座標を保持
+        let latestX = null;
+        let latestY = null;
+
+        // 画像処理ループ
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) {
@@ -126,30 +187,27 @@
                     return;
                 }
 
+                // カメラ描画
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
-                
                 if (vw > 0 && vh > 0) {
                     let aspect = vh / vw;
-                    canvas.width = PROCESS_WIDTH;
-                    canvas.height = PROCESS_WIDTH * aspect;
+                    canvas.width = 640; 
+                    canvas.height = 640 * aspect;
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 }
 
-                let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                let src = cv.matFromImageData(imgData);
+                // OpenCV処理
+                let src = cv.matFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
                 let hsv = new cv.Mat();
-                let mask = new cv.Mat();
-
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-                let lowScalar = new cv.Scalar(100, 60, 20); 
-                let highScalar = new cv.Scalar(140, 255, 255);
-                let lowMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), lowScalar);
-                let highMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), highScalar);
-
-                cv.inRange(hsv, lowMat, highMat, mask);
+                // 青色検出 (Full Sensor)
+                let mask = new cv.Mat();
+                let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(100, 60, 20));
+                let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(140, 255, 255));
+                cv.inRange(hsv, low, high, mask);
 
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
@@ -157,14 +215,10 @@
 
                 let maxArea = 0;
                 let bestContour = null;
-                let totalPixels = canvas.width * canvas.height;
-
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
-                    if (area < 20) continue;
-                    if (area > totalPixels / 4) continue;
-                    if (area > maxArea) {
+                    if (area > 20 && area > maxArea) {
                         maxArea = area;
                         bestContour = cnt;
                     }
@@ -174,87 +228,62 @@
                     let rect = cv.boundingRect(bestContour);
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 3);
 
-                    let centerX = rect.x + rect.width / 2;
-                    let centerY = rect.y + rect.height / 2;
-                    let normX = Math.round((centerX / canvas.width) * 255);
-                    let normY = Math.round((centerY / canvas.height) * 255);
+                    // 座標計算
+                    let cx = rect.x + rect.width / 2;
+                    let cy = rect.y + rect.height / 2;
                     
-                    if (requestOriginReset) {
-                        originX = normX;
-                        originY = normY;
-                        isRelativeMode = true;
-                        requestOriginReset = false;
-                        statusText.textContent = `モード: 相対座標 (原点: ${originX}, ${originY})`;
-                        statusText.style.color = "#00E676";
-                    }
+                    // 正規化 (0-255)
+                    latestX = Math.round((cx / canvas.width) * 255);
+                    latestY = Math.round((cy / canvas.height) * 255);
 
-                    let sendX, sendY;
-                    let currentMode; // モード番号
-
-                    if (isRelativeMode) {
-                        // モード2: 相対
-                        let diffX = normX - originX;
-                        let diffY = normY - originY;
-                        sendX = Math.max(0, Math.min(255, diffX + 127));
-                        sendY = Math.max(0, Math.min(255, diffY + 127));
+                    // --- ★ モード2 (自動追尾) のときだけ座標を送る ---
+                    if (currentMode === 2) {
+                        // ヘッダー: 0x02, X, Y
+                        sendBleData(new Uint8Array([HEADER_AUTO, latestX, latestY])).catch(e=>{});
                         
-                        // ★ここが重要: モードIDを設定
-                        currentMode = MODE_REL; 
-                        
-                        let oX = (originX / 255) * canvas.width;
-                        let oY = (originY / 255) * canvas.height;
-                        cv.drawMarker(src, new cv.Point(oX, oY), [0, 0, 255, 255], cv.MARKER_CROSS, 20, 2);
-
+                        let text = `LRA Tracking: ${latestX}, ${latestY}`;
+                        cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     } else {
-                        // モード1: 絶対
-                        sendX = normX;
-                        sendY = normY;
-                        
-                        // ★ここが重要: モードIDを設定
-                        currentMode = MODE_ABS; 
+                        // モード1のときは原点を表示
+                        let ox = (originX / 255) * canvas.width;
+                        let oy = (originY / 255) * canvas.height;
+                        cv.drawMarker(src, new cv.Point(ox, oy), [255, 0, 0, 255], cv.MARKER_CROSS, 20, 2);
+                        cv.putText(src, "Mode 1: Manual", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     }
-
-                    // ★修正: 3バイト送信 [モード, X, Y]
-                    sendBleData(new Uint8Array([currentMode, sendX, sendY])).catch(e => {});
-
-                    let text = `Mode:${currentMode} X:${sendX} Y:${sendY}`;
-                    cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 255, 255, 255], 2);
                 }
 
                 cv.imshow('canvas', src);
+                src.delete(); hsv.delete(); mask.delete(); low.delete(); high.delete(); contours.delete(); hierarchy.delete();
 
-                src.delete(); hsv.delete(); mask.delete();
-                contours.delete(); hierarchy.delete();
-                lowMat.delete(); highMat.delete();
-
-            } catch (err) {
-                console.error(err);
-            }
+            } catch (err) { console.error(err); }
             requestAnimationFrame(processVideo);
         }
 
+        // Bluetooth接続
         async function connectBluetooth() {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
             try {
-                bleDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: [SERVICE_UUID]
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true, optionalServices: [SERVICE_UUID]
                 });
-                const server = await bleDevice.gatt.connect();
+                const server = await device.gatt.connect();
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
                 alert("接続完了！");
-            } catch (err) {
-                console.error(err);
-                alert("接続失敗: " + err);
-            }
+            } catch (err) { alert("接続失敗: " + err); }
         }
 
-        async function sendBleData(dataArray) {
-            if (bleCharacteristic) {
-                await bleCharacteristic.writeValue(dataArray.buffer);
-            }
+        // データ送信 (モード1用)
+        async function sendManualCommand(directionCode) {
+            if (currentMode !== 1) return;
+            // ヘッダー: 0x01, 方向, 0(パディング)
+            await sendBleData(new Uint8Array([HEADER_MANUAL, directionCode, 0]));
+            console.log("Manual Send:", directionCode);
+        }
+
+        async function sendBleData(data) {
+            if (bleCharacteristic) await bleCharacteristic.writeValue(data);
         }
     </script>
 </body>
