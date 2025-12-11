@@ -60,7 +60,7 @@
             try {
                 // カメラの解像度をリクエストしますが、無視されることもあります
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 320, height: 240 }, 
+                    video: { width: 320, height: 320 }, 
                     audio: false 
                 });
                 video.srcObject = stream;
@@ -68,7 +68,7 @@
 
                 // キャンバスのサイズを処理しやすいサイズ(320x240)に固定してしまう
                 canvas.width = 320;
-                canvas.height = 240;
+                canvas.height = 320;
                 
                 console.log(`処理解像度を ${canvas.width}x${canvas.height} に設定しました`);
                 
