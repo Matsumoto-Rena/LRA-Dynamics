@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blue Tracking (4:3 Max FOV)</title>
+    <title>Blue Tracking (Multi-Mode)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         video { display: none; }
@@ -17,33 +17,54 @@
             border-radius: 8px;
         }
         
-        button { font-size: 1.2em; padding: 12px 24px; margin: 10px; cursor: pointer; }
+        .btn-group { margin: 20px 0; }
+        button { font-size: 1.1em; padding: 10px 20px; margin: 5px; cursor: pointer; border-radius: 5px; border: none; }
+        
+        /* ボタンの色分け */
+        .btn-start { background-color: #4CAF50; color: white; }
+        .btn-connect { background-color: #2196F3; color: white; }
+        .btn-mode { background-color: #FF9800; color: white; font-weight: bold;}
+        .btn-reset { background-color: #9E9E9E; color: white; }
+
+        #status { font-size: 1.2em; margin-bottom: 10px; color: #FF9800; min-height: 1.5em;}
         #loading { font-size: 1.1em; color: #aaa; margin-bottom: 10px;}
     </style>
 </head>
 <body>
-    <h1>Blue Tracking (4:3 Max FOV)</h1>
+    <h1>Blue Tracking (Multi-Mode)</h1>
 
     <div id="loading">OpenCV.js ロード中...</div>
+    <div id="status">モード: 絶対座標 (0-255)</div>
     
     <canvas id="canvas"></canvas>
     <video id="webcam" autoplay playsinline></video>
 
-    <div>
-        <button id="startButton">① カメラ起動</button>
-        <button id="connectButton">② Bluetooth 接続</button>
+    <div class="btn-group">
+        <button id="startButton" class="btn-start">① カメラ起動</button>
+        <button id="connectButton" class="btn-connect">② Bluetooth 接続</button>
+    </div>
+
+    <div class="btn-group">
+        <button id="setOriginButton" class="btn-mode">📍 ここを原点にする (相対モード)</button>
+        <button id="resetModeButton" class="btn-reset">絶対座標に戻す</button>
     </div>
 
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
     <script>
         let video, canvas, ctx;
-        let startButton, connectButton, loading;
+        let startButton, connectButton, setOriginButton, resetModeButton;
+        let loading, statusText;
         let bleDevice, bleCharacteristic;
         let cv; 
 
-        // 処理用の解像度
+        // 処理解像度
         const PROCESS_WIDTH = 640; 
+
+        // モード管理用変数
+        let isRelativeMode = false; // trueなら相対モード
+        let originX = 0;
+        let originY = 0;
 
         window.onload = () => {
             video = document.getElementById('webcam');
@@ -52,13 +73,42 @@
             
             startButton = document.getElementById('startButton');
             connectButton = document.getElementById('connectButton');
+            setOriginButton = document.getElementById('setOriginButton');
+            resetModeButton = document.getElementById('resetModeButton');
             loading = document.getElementById('loading');
+            statusText = document.getElementById('status');
 
             startButton.onclick = startCamera;
             connectButton.onclick = connectBluetooth;
+            
+            // --- モード切替ボタンの処理 ---
+            
+            // 「ここを原点にする」ボタン
+            setOriginButton.onclick = () => {
+                // 現在の青丸の位置を原点として保存したいが、
+                // processVideoループ内で最新の normX/normY を取得する必要があるため
+                // ここでは「次に認識した場所を原点にするフラグ」を立てるか、
+                // 単にモードを切り替えて、ループ内で currentPos を origin に代入するロジックにする。
+                // 今回はシンプルに「このボタンを押した瞬間、モードをONにする」だけにします。
+                // 実際の原点更新は processVideo 内で行います。
+                requestOriginReset = true; 
+            };
+
+            // 「絶対座標に戻す」ボタン
+            resetModeButton.onclick = () => {
+                isRelativeMode = false;
+                statusText.textContent = "モード: 絶対座標 (0-255)";
+                statusText.style.color = "#FF9800"; // オレンジ
+            };
 
             waitForOpenCV();
         };
+
+        // ループ内で原点更新を要求するためのフラグ
+        let requestOriginReset = false; 
+        // 最後に認識した座標を保存しておく変数
+        let lastNormX = 127; 
+        let lastNormY = 127;
 
         function waitForOpenCV() {
             if (window.cv && window.cv.Mat) {
@@ -72,13 +122,9 @@
         async function startCamera() {
             if (!cv) { alert("OpenCV.js ロード中..."); return; }
             try {
-                // ★修正ポイント：ここを 4:3 の比率に戻す！
-                // これでカメラセンサーの上下いっぱいまで使えます
+                // 4:3 (最大画角)
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 800 },  // 800x600 (4:3) を希望
-                        height: { ideal: 600 } 
-                    }, 
+                    video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
                     audio: false 
                 });
                 video.srcObject = stream;
@@ -97,7 +143,6 @@
                     return;
                 }
 
-                // カメラの比率に合わせてCanvasサイズを決定
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
                 
@@ -150,13 +195,60 @@
                     let centerX = rect.x + rect.width / 2;
                     let centerY = rect.y + rect.height / 2;
                     
+                    // 0〜255 に正規化
                     let normX = Math.round((centerX / canvas.width) * 255);
                     let normY = Math.round((centerY / canvas.height) * 255);
                     
-                    sendBleData(new Uint8Array([normX, normY])).catch(e => {});
+                    // 座標を保存
+                    lastNormX = normX;
+                    lastNormY = normY;
 
-                    let text = `X:${normX} Y:${normY}`;
-                    cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
+                    // --- ★ 原点リセット要求があった場合 ---
+                    if (requestOriginReset) {
+                        originX = normX;
+                        originY = normY;
+                        isRelativeMode = true;
+                        requestOriginReset = false; // フラグを戻す
+                        
+                        statusText.textContent = `モード: 相対座標 (原点: ${originX}, ${originY})`;
+                        statusText.style.color = "#00E676"; // 緑色
+                    }
+
+                    // --- 送信データの作成 ---
+                    let sendX, sendY;
+                    let displayText = "";
+
+                    if (isRelativeMode) {
+                        // モード2: 相対座標
+                        // 差分を計算 (-255 〜 +255)
+                        let diffX = normX - originX;
+                        let diffY = normY - originY;
+                        
+                        // 127を中心(ゼロ)として送信する
+                        // 例: 差分が 0 なら 127 を送る
+                        // 例: 差分が -10 なら 117 を送る
+                        sendX = Math.max(0, Math.min(255, diffX + 127));
+                        sendY = Math.max(0, Math.min(255, diffY + 127));
+                        
+                        displayText = `Rel: ${diffX}, ${diffY} (Sent: ${sendX}, ${sendY})`;
+                        
+                        // 原点を画面にバツ印で描画
+                        let oX = (originX / 255) * canvas.width;
+                        let oY = (originY / 255) * canvas.height;
+                        cv.drawMarker(src, new cv.Point(oX, oY), [0, 0, 255, 255], cv.MARKER_CROSS, 20, 2);
+
+                    } else {
+                        // モード1: 絶対座標 (今まで通り)
+                        sendX = normX;
+                        sendY = normY;
+                        displayText = `Abs: ${normX}, ${normY}`;
+                    }
+
+                    // Bluetooth送信
+                    sendBleData(new Uint8Array([sendX, sendY])).catch(e => {});
+
+                    // 画面に文字を表示
+                    cv.putText(src, displayText, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 255, 255, 255], 2);
                 }
 
                 cv.imshow('canvas', src);
