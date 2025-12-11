@@ -1,4 +1,36 @@
-<script>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Tracking (Square)</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f0f0f0; }
+        /* ビデオ本体は裏で動かすので隠す */
+        video { display: none; }
+        /* Canvas（加工後の映像）だけを画面に見せる */
+        canvas { border: 2px solid #333; background-color: #000; }
+        button { font-size: 1.2em; padding: 10px 20px; margin: 10px; }
+        #loading { font-size: 1.1em; color: #555; margin-bottom: 10px;}
+    </style>
+</head>
+<body>
+    <h1>Blue Tracking (Square)</h1>
+
+    <div id="loading">OpenCV.js ロード中...</div>
+    
+    <canvas id="canvas"></canvas>
+    
+    <video id="webcam" autoplay playsinline></video>
+
+    <div>
+        <button id="startButton">① カメラ起動</button>
+        <button id="connectButton">② Bluetooth 接続</button>
+    </div>
+
+    <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+    <script>
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -11,34 +43,46 @@
         let bleCharacteristic;
         let cv; 
 
+        // --- OpenCVロード完了待ち ---
         window.onload = () => {
-            if (window.cv) {
-                cv = window.cv;
-                loading.textContent = "OpenCV.js ロード完了！";
-            } else {
-                setTimeout(window.onload, 500);
-            }
+            waitForOpenCV();
         };
 
+        function waitForOpenCV() {
+            if (window.cv && window.cv.Mat) {
+                cv = window.cv;
+                loading.textContent = "OpenCV.js 準備完了！";
+                console.log("OpenCV.js Loaded");
+            } else {
+                setTimeout(waitForOpenCV, 500);
+            }
+        }
+
+        // --- 1. カメラ起動 ---
         startButton.onclick = async () => {
-            if (!cv) { alert("OpenCV.js ロード中..."); return; }
+            if (!cv) { alert("OpenCV.js をロード中です。少々お待ちください。"); return; }
             try {
-                // ★修正1: サイズ指定を削除して、カメラの最大視野を取得
+                // ワイド画角(16:9など)を優先的に取得
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: true, 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 } 
+                    }, 
                     audio: false 
                 });
                 video.srcObject = stream;
                 await video.play(); 
 
+                // 処理ループ開始
                 requestAnimationFrame(processVideo);
 
             } catch (err) {
-                console.error(err);
-                alert("カメラ起動失敗");
+                console.error("カメラ起動エラー:", err);
+                alert("カメラの起動に失敗しました。\n" + err);
             }
         };
 
+        // --- 2. 画像処理ループ (正方形クロップ版) ---
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) {
@@ -46,52 +90,62 @@
                     return;
                 }
 
-                // ★修正1: 正方形のサイズを決める (320x320)
-                const size = 320;
+                // --- 正方形に切り抜く処理 ---
+                const size = 320; // 正方形のサイズ
                 canvas.width = size;
                 canvas.height = size;
 
-                // ★修正2: 映像の「真ん中」を切り抜く計算
-                // (Instagramのスクエア投稿みたいな感じです)
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
-                let minDim = Math.min(vw, vh); // 短い方の長さを基準にする
-                let sx = (vw - minDim) / 2;    // 横の切り取り開始位置
-                let sy = (vh - minDim) / 2;    // 縦の切り取り開始位置
-
-                // ctx.drawImage(映像, 切り取りX, 切り取りY, 切り取り幅, 切り取り高さ, 描画X, 描画Y, 描画幅, 描画高さ)
-                ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, size, size);
                 
-                // --- ここからは同じ ---
-                let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                if (vw > 0 && vh > 0) {
+                    // 短い方の辺に合わせて切り抜くサイズを決める
+                    let minDim = Math.min(vw, vh);
+                    // 中心から切り抜くための開始座標
+                    let sx = (vw - minDim) / 2;
+                    let sy = (vh - minDim) / 2;
+
+                    // 映像を切り抜いてCanvasに描画
+                    ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, size, size);
+                }
+
+                // --- OpenCVによる画像処理 ---
+                let imgData = ctx.getImageData(0, 0, size, size);
                 let src = cv.matFromImageData(imgData);
                 let hsv = new cv.Mat();
                 let mask = new cv.Mat();
 
+                // RGB -> HSV 変換
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-                // --- 🔵 青色の設定 ---
+                // --- 🔵 青色の設定 (AtomS3などの発光体向け) ---
+                // H(色相): 100~140 (青)
+                // S(彩度): 60以上 (ある程度色がついていればOK)
+                // V(明度): 20以上 (発光体なら暗くても認識しやすい)
                 let lowScalar = new cv.Scalar(100, 60, 20); 
                 let highScalar = new cv.Scalar(140, 255, 255);
 
                 let lowMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), lowScalar);
                 let highMat = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), highScalar);
 
+                // 二値化 (青いところだけ白くする)
                 cv.inRange(hsv, lowMat, highMat, mask);
 
+                // 輪郭抽出
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
                 cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
                 let maxArea = 0;
                 let bestContour = null;
-                let totalPixels = canvas.width * canvas.height;
+                let totalPixels = size * size;
 
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false);
 
+                    // ノイズ除去 (小さすぎるゴミ & デカすぎる背景)
                     if (area < 20) continue;
                     if (area > totalPixels / 4) continue;
 
@@ -102,22 +156,30 @@
                 }
 
                 if (bestContour) {
+                    // 緑の枠を描画
                     let rect = cv.boundingRect(bestContour);
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 2);
 
+                    // 中心座標の計算
                     let centerX = rect.x + rect.width / 2;
                     let centerY = rect.y + rect.height / 2;
-                    let normX = Math.round((centerX / canvas.width) * 255);
-                    let normY = Math.round((centerY / canvas.height) * 255);
                     
+                    // 0〜255 に正規化
+                    let normX = Math.round((centerX / size) * 255);
+                    let normY = Math.round((centerY / size) * 255);
+                    
+                    // Bluetooth送信
                     sendBleData(new Uint8Array([normX, normY])).catch(e => {});
 
+                    // 画面に文字を表示
                     let text = `X: ${normX}, Y: ${normY}`;
                     cv.putText(src, text, new cv.Point(10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, [255, 255, 255, 255], 2);
                 }
 
+                // 結果を表示
                 cv.imshow('canvas', src);
 
+                // メモリ解放 (必須！)
                 src.delete(); hsv.delete(); mask.delete();
                 contours.delete(); hierarchy.delete();
                 lowMat.delete(); highMat.delete();
@@ -129,6 +191,7 @@
             requestAnimationFrame(processVideo);
         }
 
+        // --- 3. Bluetooth 接続処理 ---
         connectButton.onclick = async () => {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
@@ -153,3 +216,5 @@
             }
         }
     </script>
+</body>
+</html>
