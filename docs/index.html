@@ -7,7 +7,7 @@
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         
-        /* 画面を大きく見せるCSS */
+        /* 画面表示エリア */
         canvas { 
             border: 4px solid #555; 
             background-color: #000;
@@ -74,7 +74,7 @@
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
     <script>
-        // --- 設定変数 ---
+        // --- 1. 変数定義 ---
         const HEADER_MANUAL = 0x01;
         const HEADER_AUTO   = 0x02;
         
@@ -94,39 +94,80 @@
         let cv; 
 
         let currentMode = 1; 
-        let originX = 0, originY = 0;
-        let latestX = 0, latestY = 0; // 最新の座標を保持
+        let latestX = 0, latestY = 0;
 
-        window.onload = () => {
-            video = document.getElementById('webcam');
-            canvas = document.getElementById('canvas');
-            ctx = canvas.getContext('2d', { willReadFrequently: true });
-            
-            document.getElementById('startButton').onclick = startCamera;
-            // ★ここが原因でした！ちゃんと関数を紐づけます
-            document.getElementById('connectButton').onclick = connectBluetooth;
+        // --- 2. 関数定義 (先に定義しておく！) ---
 
-            document.getElementById('mode1Btn').onclick = () => setMode(1);
-            document.getElementById('mode2Btn').onclick = () => setMode(2);
-
-            setupDpad('btn-up',    DIR_UP);
-            setupDpad('btn-down',  DIR_DOWN);
-            setupDpad('btn-left',  DIR_LEFT);
-            setupDpad('btn-right', DIR_RIGHT);
-
-            setMode(1);
-            waitForOpenCV();
-        };
-
-        function setupDpad(id, code) {
-            const btn = document.getElementById(id);
-            btn.onmousedown = () => sendManualCommand(code);
-            btn.onmouseup   = () => sendManualCommand(DIR_STOP);
-            btn.onmouseleave= () => sendManualCommand(DIR_STOP);
-            btn.ontouchstart= (e) => { e.preventDefault(); sendManualCommand(code); };
-            btn.ontouchend  = (e) => { e.preventDefault(); sendManualCommand(DIR_STOP); };
+        // OpenCVロード待ち
+        function waitForOpenCV() {
+            if (window.cv && window.cv.Mat) {
+                cv = window.cv;
+                document.getElementById('loading').textContent = "OpenCV.js 準備完了！";
+            } else {
+                setTimeout(waitForOpenCV, 500);
+            }
         }
 
+        // カメラ起動
+        async function startCamera() {
+            if (!cv) { alert("OpenCVロード中..."); return; }
+            try {
+                // 4:3 の比率を指定して視野を確保
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
+                    audio: false 
+                });
+                video.srcObject = stream;
+                await video.play(); 
+                requestAnimationFrame(processVideo);
+            } catch (err) {
+                alert("カメラエラー: " + err);
+            }
+        }
+
+        // Bluetooth接続 (※ここが消えていた箇所です！)
+        async function connectBluetooth() {
+            const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
+            const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
+            try {
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true, optionalServices: [SERVICE_UUID]
+                });
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                alert("接続完了！");
+            } catch (err) { alert("接続失敗: " + err); }
+        }
+
+        // データ送信 (間引き機能付き)
+        async function sendBleData(data) {
+            if (!bleCharacteristic || isSending) return;
+            if (Date.now() - lastSendTime < SEND_INTERVAL) return;
+
+            try {
+                isSending = true;
+                await bleCharacteristic.writeValue(data);
+                lastSendTime = Date.now();
+            } catch (err) {
+                console.error(err);
+            } finally {
+                isSending = false;
+            }
+        }
+
+        // 手動コマンド送信
+        async function sendManualCommand(directionCode) {
+            if (currentMode !== 1) return;
+            // 手動コマンドは待たずに送る（操作性を優先）
+            if (bleCharacteristic) {
+                try {
+                    await bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, directionCode, 0]));
+                } catch(e) {}
+            }
+        }
+
+        // モード切替
         function setMode(mode) {
             currentMode = mode;
             document.getElementById('mode1Btn').className = mode === 1 ? 'tab active' : 'tab';
@@ -146,41 +187,23 @@
             }
         }
 
-        function waitForOpenCV() {
-            if (window.cv && window.cv.Mat) {
-                cv = window.cv;
-                document.getElementById('loading').textContent = "OpenCV.js 準備完了！";
-            } else {
-                setTimeout(waitForOpenCV, 500);
-            }
+        // 十字キー設定
+        function setupDpad(id, code) {
+            const btn = document.getElementById(id);
+            btn.onmousedown = () => sendManualCommand(code);
+            btn.onmouseup   = () => sendManualCommand(DIR_STOP);
+            btn.onmouseleave= () => sendManualCommand(DIR_STOP);
+            btn.ontouchstart= (e) => { e.preventDefault(); sendManualCommand(code); };
+            btn.ontouchend  = (e) => { e.preventDefault(); sendManualCommand(DIR_STOP); };
         }
 
-        async function startCamera() {
-            if (!cv) { alert("OpenCVロード中..."); return; }
-            try {
-                // 4:3 の比率を指定して視野を確保
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
-                    audio: false 
-                });
-                video.srcObject = stream;
-                await video.play(); 
-                
-                // 映像処理ループを開始
-                requestAnimationFrame(processVideo);
-            } catch (err) {
-                alert("カメラエラー: " + err);
-            }
-        }
-
+        // 映像処理ループ
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) {
-                    // ここでは再帰せず、下のfinallyに任せる
                     return; 
                 }
 
-                // 4:3 比率で描画
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
                 if (vw > 0 && vh > 0) {
@@ -226,14 +249,13 @@
                     latestX = Math.round((cx / canvas.width) * 255);
                     latestY = Math.round((cy / canvas.height) * 255);
 
-                    // --- 自動モード(2)なら座標送信 ---
                     if (currentMode === 2) {
-                        // awaitなしで投げっぱなし送信 (カクつき防止)
+                        // モード2: 座標送信 (間引きあり)
                         sendBleData(new Uint8Array([HEADER_AUTO, latestX, latestY]));
-                        
                         let text = `Auto: ${latestX}, ${latestY}`;
                         cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     } else {
+                        // モード1: 画面表示のみ
                         cv.putText(src, "Manual Mode", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     }
                 }
@@ -244,49 +266,32 @@
             } catch (err) {
                 console.error(err);
             } finally {
-                // ★超重要: 何があっても絶対に次のフレームへ進む
                 requestAnimationFrame(processVideo);
             }
         }
 
-        // --- ★ これが消えていた関数です！復活させました ---
-        async function connectBluetooth() {
-            const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
-            const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
-            try {
-                bleDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true, optionalServices: [SERVICE_UUID]
-                });
-                const server = await bleDevice.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-                alert("接続完了！");
-            } catch (err) { alert("接続失敗: " + err); }
-        }
-
-        async function sendManualCommand(directionCode) {
-            if (currentMode !== 1) return;
-            // 手動コマンドは即時反応してほしいので制限を緩めるか、そのまま送る
-            await sendBleData(new Uint8Array([HEADER_MANUAL, directionCode, 0]));
-        }
-
-        // 送信間引き機能付き
-        async function sendBleData(data) {
-            if (!bleCharacteristic || isSending) return;
+        // --- 3. メイン処理 (window.onload) ---
+        window.onload = () => {
+            video = document.getElementById('webcam');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d', { willReadFrequently: true });
             
-            // 前回の送信から時間が経っていないならスキップ (遅延防止)
-            if (Date.now() - lastSendTime < SEND_INTERVAL) return;
+            // 各ボタンに関数を割り当て
+            // (関数は上で定義済みなので、ここではエラーになりません)
+            document.getElementById('startButton').onclick = startCamera;
+            document.getElementById('connectButton').onclick = connectBluetooth;
+            document.getElementById('mode1Btn').onclick = () => setMode(1);
+            document.getElementById('mode2Btn').onclick = () => setMode(2);
 
-            try {
-                isSending = true;
-                await bleCharacteristic.writeValue(data);
-                lastSendTime = Date.now();
-            } catch (err) {
-                console.error(err);
-            } finally {
-                isSending = false;
-            }
-        }
+            setupDpad('btn-up',    DIR_UP);
+            setupDpad('btn-down',  DIR_DOWN);
+            setupDpad('btn-left',  DIR_LEFT);
+            setupDpad('btn-right', DIR_RIGHT);
+
+            setMode(1);
+            waitForOpenCV();
+        };
+
     </script>
 </body>
 </html>
