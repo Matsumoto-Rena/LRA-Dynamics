@@ -3,67 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller (Final)</title>
+    <title>Hybrid Controller (Fixed)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
-        
-        /* 画面表示エリア */
-        canvas { 
-            border: 4px solid #555; 
-            background-color: #000;
-            width: 100%;       
-            max-width: 640px;
-            height: auto;      
-            border-radius: 8px;
-        }
+        canvas { border: 4px solid #555; background-color: #000; width: 100%; max-width: 640px; height: auto; border-radius: 8px; }
         video { display: none; }
-
-        /* ボタンデザイン */
         button { cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
         .btn-sys { font-size: 1.1em; padding: 10px 20px; margin: 5px; background-color: #607D8B; color: white; }
-        
-        /* モード切替タブ */
         .mode-tabs { margin: 20px 0; display: flex; justify-content: center; gap: 10px; }
         .tab { padding: 10px 30px; font-size: 1.2em; opacity: 0.5; transition: 0.3s; background: #444; color: #fff;}
         .tab.active { opacity: 1; background-color: #FF9800; transform: scale(1.1); box-shadow: 0 0 10px #FF9800;}
-
-        /* 十字キー */
         #dpad-area { display: none; margin: 20px auto; width: 200px; height: 200px; position: relative; }
-        .d-btn { 
-            position: absolute; width: 60px; height: 60px; 
-            background: #444; color: white; font-size: 24px;
-            border-radius: 10px; user-select: none;
-        }
+        .d-btn { position: absolute; width: 60px; height: 60px; background: #444; color: white; font-size: 24px; border-radius: 10px; user-select: none; }
         .d-btn:active { background: #FF9800; }
-        #btn-up    { top: 0; left: 70px; }
-        #btn-down  { bottom: 0; left: 70px; }
-        #btn-left  { top: 70px; left: 0; }
-        #btn-right { top: 70px; right: 0; }
-
+        #btn-up { top: 0; left: 70px; } #btn-down { bottom: 0; left: 70px; }
+        #btn-left { top: 70px; left: 0; } #btn-right { top: 70px; right: 0; }
         #status { font-size: 1.2em; margin-bottom: 10px; color: #aaa; min-height: 1.5em; }
-        #loading { font-size: 1.1em; color: #aaa; margin-bottom: 10px;}
     </style>
 </head>
 <body>
     <h1>Hybrid Controller</h1>
     <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
-
     <canvas id="canvas"></canvas>
     <video id="webcam" autoplay playsinline></video>
-
     <div>
         <button id="startButton" class="btn-sys">① カメラ起動</button>
         <button id="connectButton" class="btn-sys">② Bluetooth 接続</button>
     </div>
-
     <hr style="border-color: #444; margin: 20px;">
-
     <div class="mode-tabs">
         <button id="mode1Btn" class="tab active">Mode 1: 手動</button>
         <button id="mode2Btn" class="tab">Mode 2: 自動(LRA)</button>
     </div>
-
     <div id="dpad-area">
         <button id="btn-up" class="d-btn">▲</button>
         <button id="btn-left" class="d-btn">◀</button>
@@ -72,60 +44,25 @@
     </div>
 
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-
     <script>
         // --- 1. 変数定義 ---
         const HEADER_MANUAL = 0x01;
         const HEADER_AUTO   = 0x02;
+        const DIR_STOP = 0, DIR_UP = 1, DIR_DOWN = 2, DIR_LEFT = 3, DIR_RIGHT = 4;
         
-        const DIR_STOP  = 0;
-        const DIR_UP    = 1;
-        const DIR_DOWN  = 2;
-        const DIR_LEFT  = 3;
-        const DIR_RIGHT = 4;
-
-        // 通信制限用 (0.2秒に1回だけ送る)
         let lastSendTime = 0;       
-        const SEND_INTERVAL = 200;
+        const SEND_INTERVAL = 200; // 0.2秒制限
         let isSending = false;      
 
         let video, canvas, ctx;
         let bleDevice, bleCharacteristic;
         let cv; 
-
         let currentMode = 1; 
         let latestX = 0, latestY = 0;
 
-        // --- 2. 関数定義 (先に定義しておく！) ---
+        // --- 2. 重要な関数を先に定義 (エラー回避) ---
 
-        // OpenCVロード待ち
-        function waitForOpenCV() {
-            if (window.cv && window.cv.Mat) {
-                cv = window.cv;
-                document.getElementById('loading').textContent = "OpenCV.js 準備完了！";
-            } else {
-                setTimeout(waitForOpenCV, 500);
-            }
-        }
-
-        // カメラ起動
-        async function startCamera() {
-            if (!cv) { alert("OpenCVロード中..."); return; }
-            try {
-                // 4:3 の比率を指定して視野を確保
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
-                    audio: false 
-                });
-                video.srcObject = stream;
-                await video.play(); 
-                requestAnimationFrame(processVideo);
-            } catch (err) {
-                alert("カメラエラー: " + err);
-            }
-        }
-
-        // Bluetooth接続 (※ここが消えていた箇所です！)
+        // ★Bluetooth接続関数 (ここにあれば絶対見つかります！)
         async function connectBluetooth() {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
@@ -140,34 +77,40 @@
             } catch (err) { alert("接続失敗: " + err); }
         }
 
-        // データ送信 (間引き機能付き)
+        // カメラ起動
+        async function startCamera() {
+            if (!cv) { alert("OpenCVロード中..."); return; }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
+                    audio: false 
+                });
+                video.srcObject = stream;
+                await video.play(); 
+                requestAnimationFrame(processVideo);
+            } catch (err) { alert("カメラエラー: " + err); }
+        }
+
+        // データ送信 (間引き機能)
         async function sendBleData(data) {
             if (!bleCharacteristic || isSending) return;
             if (Date.now() - lastSendTime < SEND_INTERVAL) return;
-
             try {
                 isSending = true;
                 await bleCharacteristic.writeValue(data);
                 lastSendTime = Date.now();
-            } catch (err) {
-                console.error(err);
-            } finally {
-                isSending = false;
-            }
+            } catch (err) { console.error(err); } 
+            finally { isSending = false; }
         }
 
-        // 手動コマンド送信
-        async function sendManualCommand(directionCode) {
-            if (currentMode !== 1) return;
-            // 手動コマンドは待たずに送る（操作性を優先）
-            if (bleCharacteristic) {
-                try {
-                    await bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, directionCode, 0]));
-                } catch(e) {}
-            }
+        async function sendManualCommand(code) {
+            if (currentMode !== 1 || !bleCharacteristic) return;
+            try {
+                // 手動操作は即時反応させるため、直接 writeValue する
+                await bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, code, 0]));
+            } catch(e){}
         }
 
-        // モード切替
         function setMode(mode) {
             currentMode = mode;
             document.getElementById('mode1Btn').className = mode === 1 ? 'tab active' : 'tab';
@@ -187,7 +130,6 @@
             }
         }
 
-        // 十字キー設定
         function setupDpad(id, code) {
             const btn = document.getElementById(id);
             btn.onmousedown = () => sendManualCommand(code);
@@ -197,19 +139,25 @@
             btn.ontouchend  = (e) => { e.preventDefault(); sendManualCommand(DIR_STOP); };
         }
 
-        // 映像処理ループ
+        function waitForOpenCV() {
+            if (window.cv && window.cv.Mat) {
+                cv = window.cv;
+                document.getElementById('loading').textContent = "OpenCV.js 準備完了！";
+            } else {
+                setTimeout(waitForOpenCV, 500);
+            }
+        }
+
+        // 映像処理
         function processVideo() {
             try {
-                if (!cv || video.paused || video.ended) {
-                    return; 
-                }
+                if (!cv || video.paused || video.ended) return;
 
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
                 if (vw > 0 && vh > 0) {
                     let aspect = vh / vw;
-                    canvas.width = 640; 
-                    canvas.height = 640 * aspect;
+                    canvas.width = 640; canvas.height = 640 * aspect;
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 }
 
@@ -219,7 +167,6 @@
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
                 let mask = new cv.Mat();
-                // 青色検出 (暗い場所対応)
                 let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(100, 60, 20));
                 let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(140, 255, 255));
                 cv.inRange(hsv, low, high, mask);
@@ -245,39 +192,31 @@
 
                     let cx = rect.x + rect.width / 2;
                     let cy = rect.y + rect.height / 2;
-                    
                     latestX = Math.round((cx / canvas.width) * 255);
                     latestY = Math.round((cy / canvas.height) * 255);
 
                     if (currentMode === 2) {
-                        // モード2: 座標送信 (間引きあり)
                         sendBleData(new Uint8Array([HEADER_AUTO, latestX, latestY]));
                         let text = `Auto: ${latestX}, ${latestY}`;
                         cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     } else {
-                        // モード1: 画面表示のみ
                         cv.putText(src, "Manual Mode", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     }
                 }
-
                 cv.imshow('canvas', src);
                 src.delete(); hsv.delete(); mask.delete(); low.delete(); high.delete(); contours.delete(); hierarchy.delete();
 
-            } catch (err) {
-                console.error(err);
-            } finally {
-                requestAnimationFrame(processVideo);
-            }
+            } catch (err) { console.error(err); } 
+            finally { requestAnimationFrame(processVideo); }
         }
 
-        // --- 3. メイン処理 (window.onload) ---
+        // --- 3. メイン初期化 (関数定義の後で実行) ---
         window.onload = () => {
             video = document.getElementById('webcam');
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d', { willReadFrequently: true });
             
-            // 各ボタンに関数を割り当て
-            // (関数は上で定義済みなので、ここではエラーになりません)
+            // 関数が先に定義されているので、ここで確実に紐づけられます
             document.getElementById('startButton').onclick = startCamera;
             document.getElementById('connectButton').onclick = connectBluetooth;
             document.getElementById('mode1Btn').onclick = () => setMode(1);
@@ -291,7 +230,6 @@
             setMode(1);
             waitForOpenCV();
         };
-
     </script>
 </body>
 </html>
