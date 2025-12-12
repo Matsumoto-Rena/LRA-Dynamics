@@ -3,18 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller</title>
+    <title>Hybrid Controller (Final)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         
-        /* 映像表示エリア */
+        /* 画面を大きく見せるCSS */
         canvas { 
-            border: 4px solid #555; background-color: #000;
-            width: 100%; max-width: 640px; height: auto; border-radius: 8px;
+            border: 4px solid #555; 
+            background-color: #000;
+            width: 100%;       
+            max-width: 640px;
+            height: auto;      
+            border-radius: 8px;
         }
         video { display: none; }
 
-        /* ボタン共通 */
+        /* ボタンデザイン */
         button { cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
         .btn-sys { font-size: 1.1em; padding: 10px 20px; margin: 5px; background-color: #607D8B; color: white; }
         
@@ -23,7 +27,7 @@
         .tab { padding: 10px 30px; font-size: 1.2em; opacity: 0.5; transition: 0.3s; background: #444; color: #fff;}
         .tab.active { opacity: 1; background-color: #FF9800; transform: scale(1.1); box-shadow: 0 0 10px #FF9800;}
 
-        /* 十字キー (モード1用) */
+        /* 十字キー */
         #dpad-area { display: none; margin: 20px auto; width: 200px; height: 200px; position: relative; }
         .d-btn { 
             position: absolute; width: 60px; height: 60px; 
@@ -37,10 +41,12 @@
         #btn-right { top: 70px; right: 0; }
 
         #status { font-size: 1.2em; margin-bottom: 10px; color: #aaa; min-height: 1.5em; }
+        #loading { font-size: 1.1em; color: #aaa; margin-bottom: 10px;}
     </style>
 </head>
 <body>
     <h1>Hybrid Controller</h1>
+    <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
 
     <canvas id="canvas"></canvas>
@@ -68,29 +74,28 @@
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
     <script>
-        // 通信プロトコル定数
-        const HEADER_MANUAL = 0x01; // モード1
-        const HEADER_AUTO   = 0x02; // モード2
+        // --- 設定変数 ---
+        const HEADER_MANUAL = 0x01;
+        const HEADER_AUTO   = 0x02;
         
-        // 方向コード
         const DIR_STOP  = 0;
         const DIR_UP    = 1;
         const DIR_DOWN  = 2;
-        const DIR_RIGHT = 3;
-        const DIR_LEFT = 4;
+        const DIR_LEFT  = 3;
+        const DIR_RIGHT = 4;
+
+        // 通信制限用 (0.2秒に1回だけ送る)
+        let lastSendTime = 0;       
+        const SEND_INTERVAL = 200;
+        let isSending = false;      
 
         let video, canvas, ctx;
-        let bleCharacteristic;
+        let bleDevice, bleCharacteristic;
         let cv; 
 
-        // 通信制限用の変数
-        let lastSendTime = 0;       // 最後に送信した時間
-        const SEND_INTERVAL = 150;  // 送信間隔（ミリ秒）。100〜200くらいが安定します
-        let isSending = false;      // 今、送信処理中かどうか
-
-        // 状態管理
-        let currentMode = 1; // 1 or 2
-        let originX = 0, originY = 0; // モード1開始時の原点
+        let currentMode = 1; 
+        let originX = 0, originY = 0;
+        let latestX = 0, latestY = 0; // 最新の座標を保持
 
         window.onload = () => {
             video = document.getElementById('webcam');
@@ -98,35 +103,30 @@
             ctx = canvas.getContext('2d', { willReadFrequently: true });
             
             document.getElementById('startButton').onclick = startCamera;
+            // ★ここが原因でした！ちゃんと関数を紐づけます
             document.getElementById('connectButton').onclick = connectBluetooth;
 
-            // モード切替
             document.getElementById('mode1Btn').onclick = () => setMode(1);
             document.getElementById('mode2Btn').onclick = () => setMode(2);
 
-            // 十字キーイベント設定 (押したとき送信、離したとき停止)
             setupDpad('btn-up',    DIR_UP);
             setupDpad('btn-down',  DIR_DOWN);
             setupDpad('btn-left',  DIR_LEFT);
             setupDpad('btn-right', DIR_RIGHT);
 
-            setMode(1); // 初期はモード1
+            setMode(1);
             waitForOpenCV();
         };
 
-        // 十字キーの設定関数
         function setupDpad(id, code) {
             const btn = document.getElementById(id);
-            // PC用 (マウス)
             btn.onmousedown = () => sendManualCommand(code);
             btn.onmouseup   = () => sendManualCommand(DIR_STOP);
             btn.onmouseleave= () => sendManualCommand(DIR_STOP);
-            // スマホ用 (タッチ)
             btn.ontouchstart= (e) => { e.preventDefault(); sendManualCommand(code); };
             btn.ontouchend  = (e) => { e.preventDefault(); sendManualCommand(DIR_STOP); };
         }
 
-        // モード切替処理
         function setMode(mode) {
             currentMode = mode;
             document.getElementById('mode1Btn').className = mode === 1 ? 'tab active' : 'tab';
@@ -136,63 +136,51 @@
             const dpad = document.getElementById('dpad-area');
 
             if (mode === 1) {
-                status.textContent = "モード1: 原点設定済。ボタンで操作してください。";
+                status.textContent = "モード1: 手動リモコン";
                 status.style.color = "#FF9800";
-                dpad.style.display = "block"; // 十字キー表示
-                
-                // ★ モード1に入った瞬間、現在の青丸位置を「原点」として記録する
-                // (processVideo内で latestX, latestY を参照してセット)
-                if (latestX !== null) {
-                    originX = latestX;
-                    originY = latestY;
-                    console.log(`原点設定: ${originX}, ${originY}`);
-                }
+                dpad.style.display = "block"; 
             } else {
-                status.textContent = "モード2: 青丸の絶対座標を送信中...";
+                status.textContent = "モード2: LRA自動追尾中...";
                 status.style.color = "#00E676";
-                dpad.style.display = "none";  // 十字キー非表示
+                dpad.style.display = "none"; 
             }
         }
 
-        // OpenCVロード待ち
         function waitForOpenCV() {
             if (window.cv && window.cv.Mat) {
                 cv = window.cv;
-                document.getElementById('status').textContent = "システム準備完了";
+                document.getElementById('loading').textContent = "OpenCV.js 準備完了！";
             } else {
                 setTimeout(waitForOpenCV, 500);
             }
         }
 
-        // カメラ起動 (4:3 Max FOV)
         async function startCamera() {
-            if (!cv) return;
+            if (!cv) { alert("OpenCVロード中..."); return; }
             try {
+                // 4:3 の比率を指定して視野を確保
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
                     audio: false 
                 });
                 video.srcObject = stream;
                 await video.play(); 
+                
+                // 映像処理ループを開始
                 requestAnimationFrame(processVideo);
             } catch (err) {
                 alert("カメラエラー: " + err);
             }
         }
 
-        // グローバル変数で最新座標を保持
-        let latestX = null;
-        let latestY = null;
-
-        // 画像処理ループ
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) {
-                    requestAnimationFrame(processVideo);
-                    return;
+                    // ここでは再帰せず、下のfinallyに任せる
+                    return; 
                 }
 
-                // カメラ描画
+                // 4:3 比率で描画
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
                 if (vw > 0 && vh > 0) {
@@ -202,14 +190,13 @@
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 }
 
-                // OpenCV処理
                 let src = cv.matFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
                 let hsv = new cv.Mat();
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-                // 青色検出 (Full Sensor)
                 let mask = new cv.Mat();
+                // 青色検出 (暗い場所対応)
                 let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(100, 60, 20));
                 let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(140, 255, 255));
                 cv.inRange(hsv, low, high, mask);
@@ -233,60 +220,71 @@
                     let rect = cv.boundingRect(bestContour);
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 3);
 
-                    // 座標計算
                     let cx = rect.x + rect.width / 2;
                     let cy = rect.y + rect.height / 2;
                     
-                    // 正規化 (0-255)
                     latestX = Math.round((cx / canvas.width) * 255);
                     latestY = Math.round((cy / canvas.height) * 255);
 
-                    // --- ★ モード2 (自動追尾) のときだけ座標を送る ---
+                    // --- 自動モード(2)なら座標送信 ---
                     if (currentMode === 2) {
-                        // ヘッダー: 0x02, X, Y
-                        sendBleData(new Uint8Array([HEADER_AUTO, latestX, latestY])).catch(e=>{});
+                        // awaitなしで投げっぱなし送信 (カクつき防止)
+                        sendBleData(new Uint8Array([HEADER_AUTO, latestX, latestY]));
                         
-                        let text = `LRA Tracking: ${latestX}, ${latestY}`;
+                        let text = `Auto: ${latestX}, ${latestY}`;
                         cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     } else {
-                        // モード1のときは原点を表示
-                        let ox = (originX / 255) * canvas.width;
-                        let oy = (originY / 255) * canvas.height;
-                        cv.drawMarker(src, new cv.Point(ox, oy), [255, 0, 0, 255], cv.MARKER_CROSS, 20, 2);
-                        cv.putText(src, "Mode 1: Manual", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
+                        cv.putText(src, "Manual Mode", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     }
                 }
 
                 cv.imshow('canvas', src);
                 src.delete(); hsv.delete(); mask.delete(); low.delete(); high.delete(); contours.delete(); hierarchy.delete();
 
-            } catch (err) { console.error(err); }
-            requestAnimationFrame(processVideo);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                // ★超重要: 何があっても絶対に次のフレームへ進む
+                requestAnimationFrame(processVideo);
+            }
         }
 
-        // Bluetooth接続
-        async function sendBleData(dataArray) {
-            // BLEがつながっていないなら何もしない
-            if (!bleCharacteristic) return;
+        // --- ★ これが消えていた関数です！復活させました ---
+        async function connectBluetooth() {
+            const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
+            const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
+            try {
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true, optionalServices: [SERVICE_UUID]
+                });
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                alert("接続完了！");
+            } catch (err) { alert("接続失敗: " + err); }
+        }
 
-            // 1. 「送信中」なら、新しい命令は無視して捨てる（これが遅延防止の鍵！）
-            if (isSending) return;
+        async function sendManualCommand(directionCode) {
+            if (currentMode !== 1) return;
+            // 手動コマンドは即時反応してほしいので制限を緩めるか、そのまま送る
+            await sendBleData(new Uint8Array([HEADER_MANUAL, directionCode, 0]));
+        }
 
-            // 2. 前回の送信から時間が経っていなければ無視する
-            const now = Date.now();
-            if (now - lastSendTime < SEND_INTERVAL) return;
+        // 送信間引き機能付き
+        async function sendBleData(data) {
+            if (!bleCharacteristic || isSending) return;
+            
+            // 前回の送信から時間が経っていないならスキップ (遅延防止)
+            if (Date.now() - lastSendTime < SEND_INTERVAL) return;
 
             try {
-                isSending = true; // 「今から送るよ！」と旗を上げる
-                
-                await bleCharacteristic.writeValue(dataArray.buffer);
-                
-                lastSendTime = Date.now(); // 送信完了時間を記録
-                
+                isSending = true;
+                await bleCharacteristic.writeValue(data);
+                lastSendTime = Date.now();
             } catch (err) {
-                console.error("送信エラー:", err);
+                console.error(err);
             } finally {
-                isSending = false; // 「送り終わったよ（または失敗したよ）」と旗を下ろす
+                isSending = false;
             }
         }
     </script>
