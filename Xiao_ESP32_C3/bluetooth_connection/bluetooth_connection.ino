@@ -2,113 +2,194 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <Adafruit_MCP4725.h>
 
-// -----------------------------------------------------------------
-// !! 重要 !!
-// ブラウザ側の JavaScript と UUID を完全に一致させます
-// -----------------------------------------------------------------
 #define SERVICE_UUID        "0000aaaa-0000-1000-8000-00805f9b34fb"
 #define CHARACTERISTIC_UUID "0000bbbb-0000-1000-8000-00805f9b34fb"
-// -----------------------------------------------------------------
 
-BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
 
-// 接続/切断イベントを処理するコールバック
+Adafruit_MCP4725 dac1;
+
+// --- 状態管理 ---
+bool isAutoRunning = false; // 自動ループ中か
+int manualId = 0;           // 手動実行中のパターンID (0=停止, 1~4=実行中)
+
+// --- パラメータ変数 ---
+int paramRes1 = 5;
+int paramRep1 = 4;
+int paramRes2 = 10;
+int paramRep2 = 4;
+int loopCount = 200;
+
+// すべてのGPIOピンをLowに
+void stopAll() {
+  digitalWrite(D2, LOW); digitalWrite(D3, LOW);
+  digitalWrite(D6, LOW); digitalWrite(D7, LOW);
+  digitalWrite(D8, LOW); digitalWrite(D10, LOW);
+  dac1.setVoltage(0, false, 800000);
+}
+
+// 接続コールバック
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
-      Serial.println("クライアントが接続しました");
+      Serial.println("Connect!");
     }
-
     void onDisconnect(BLEServer* pServer) {
       deviceConnected = false;
-      Serial.println("クライアントが切断しました");
-      // 切断されたら、再度アドバタイズ（発見可能状態）を開始
+      Serial.println("Disconnect!");
       pServer->getAdvertising()->start();
     }
 };
 
-// ブラウザからの書き込み(Write)イベントを処理するコールバック
-class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
+// 停止指令が来ていないかチェックする関数
+// 手動モードで指を離した(manualIdが0になった)ら true を返す
+bool checkStop() {
+  // 手動モード実行中なのに、通信によって停止(0)に書き換わっていたら中断
+  if (manualId == 0 && !isAutoRunning) return true; 
+  
+  // 自動モード中にSTOPされたら中断
+  if (isAutoRunning == false && manualId == 0) return true;
 
-  // 受信コールバックの一部
-  void onWrite(BLECharacteristic *pCharacteristic) {
-      // std::string value = pCharacteristic->getValue(); // もしここがエラーなら String に戻してください
-      String value = pCharacteristic->getValue();
+  return false;
+}
 
-      if (value.length() == 3) {
-          // 1バイト目: モード (1:絶対, 2:相対)
-          int mode = (int)value[0];
-          // 2バイト目: X
-          int rawX = (int)value[1];
-          // 3バイト目: Y
-          int rawY = (int)value[2];
+void move(int res, int repeatCount, bool isDir){
+  if(res <= 0) res = 1;
+  if(repeatCount < 0) repeatCount = 0;
 
-          int finalX = 0;
-          int finalY = 0;
+  // delayMicroseconds(100);
+  if(checkStop()) return; // ループの途中でも指が離れたら即終了
+  for(int i = 0; i < repeatCount; i++){
 
-          if (mode == 1) {
-              // --- モード1: 絶対座標 ---
-              // 0〜255 がそのまま座標
-              finalX = rawX;
-              finalY = rawY;
-              Serial.printf("絶対座標: X=%d, Y=%d\n", finalX, finalY);
-
-          } else if (mode == 2) {
-              // --- モード2: 相対座標 ---
-              // 127 が中心なので、引いて「移動量」に戻す
-              // 例: 受信127 -> 0 (停止)
-              // 例: 受信137 -> +10 (右へ)
-              finalX = rawX - 127;
-              finalY = rawY - 127;
-              Serial.printf("相対移動: dX=%d, dY=%d\n", finalX, finalY);
-          }
-
-          // ここでモーター制御などを行う
-          // controlMotor(finalX, finalY);
-      }
+    if(isDir){
+      digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
+    }else{
+      digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
+    }
+    for(uint8_t k=0; k<res; k++){
+      dac1.setVoltage(4095 * 1.0 * fabs(sin(k * 2 * 3.14 / res / 2)), false, 800000);
+    }
   }
+
+  // delayMicroseconds(100);
+  if(checkStop()) return;
+
+  if(isDir){
+    digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
+  }else{
+    digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
+  }
+  for(uint8_t k=0; k<res; k++){
+    dac1.setVoltage(4095 * 1.0 * fabs(sin(k * 2 * 3.14 / res / 2)), false, 800000);
+  }
+}
+
+void move2(int res, int repeatCount, bool isDir){
+  if(res <= 0) res = 1;
+  if(repeatCount < 0) repeatCount = 0;
+
+  delayMicroseconds(100);
+  for(int i = 0; i < repeatCount; i++){
+  if(checkStop()) return; // ループの途中でも指が離れたら即終了
+
+    if(isDir){
+      digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
+    }else{
+      digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
+    }
+    for(uint8_t k=0; k<res; k++){
+      dac1.setVoltage(4095 * 1.0 * fabs(sin(k * 2 * 3.14 / res / 2)), false, 800000);
+    }
+  }
+
+  delayMicroseconds(100);
+  if(checkStop()) return;
+  
+  if(isDir){
+    digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
+  }else{
+    digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
+  }
+  for(uint8_t k=0; k<res; k++){
+    dac1.setVoltage(4095 * 1.0 * fabs(sin(k * 2 * 3.14 / res / 2)), false, 800000);
+  }
+}
+
+// 指定したパターンの設定で1単位だけ動かす
+void runPatternStep(int id) {
+  // ピン設定
+  digitalWrite(D6, LOW); digitalWrite(D8, LOW); digitalWrite(D7, LOW); digitalWrite(D10, LOW);
+  
+  switch(id) {
+    case 1: digitalWrite(D6, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, true);  break;
+    case 2: digitalWrite(D8, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, false); break;
+    case 3: digitalWrite(D7, HIGH);  move2(paramRes2, paramRep2, true);  break;
+    case 4: digitalWrite(D10, HIGH); move2(paramRes2, paramRep2, false); break;
+  }
+}
+
+// 書き込みコールバック
+// 書き込みコールバック
+class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      // 生データを取得
+      uint8_t* data = pCharacteristic->getData();
+      
+      // ★修正: std::string ではなく String を使います
+      String valueStr = pCharacteristic->getValue();
+      int len = valueStr.length();
+
+      if (len == 3) {
+        int header = data[0]; // 1バイト目: モード識別
+        int val1   = data[1]; // 2バイト目
+        int val2   = data[2]; // 3バイト目
+
+        if (header == 0x01) {
+            // --- モード1: 手動 ---
+            isAutoRunning = false;
+            manualId = val1;
+        } else if (header == 0x02) {
+            // --- モード2: LRA自動追尾 ---
+            isAutoRunning = true;
+        }
+      }
+    }
 };
 
-
 void setup() {
+  // MDのGPIOピン設定
+  pinMode(D2,OUTPUT); pinMode(D3,OUTPUT);
+  pinMode(D6,OUTPUT); pinMode(D7,OUTPUT);
+  pinMode(D8,OUTPUT); pinMode(D10,OUTPUT);
+  // dacの設定
+  dac1.begin(0x62);
+
+  stopAll();
+
   Serial.begin(115200);
-  Serial.println("BLE サーバーを起動します...");
-
-  // 1. BLEデバイスの初期化
-  // "XIAO_ESP32_C3" という名前でアドバタイズ（電波発信）します
-  BLEDevice::init("XIAO_ESP32_C3"); 
-
-  // 2. BLEサーバーの作成
+  BLEDevice::init("XIAO_ESP32_C3");
   BLEServer *pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks()); // 接続・切断コールバックを登録
-
-  // 3. BLEサービスの作成
+  pServer->setCallbacks(new MyServerCallbacks());
   BLEService *pService = pServer->createService(SERVICE_UUID);
-
-  // 4. BLE特性 (Characteristic) の作成
-  pCharacteristic = pService->createCharacteristic(
+  BLECharacteristic *pCharacteristic = pService->createCharacteristic(
                       CHARACTERISTIC_UUID,
-                      BLECharacteristic::PROPERTY_WRITE // ブラウザからの「書き込み」を許可
+                      BLECharacteristic::PROPERTY_WRITE
                     );
-
-  // 5. 特性 (Characteristic) に書き込みコールバックを登録
   pCharacteristic->setCallbacks(new MyCharacteristicCallbacks());
-
-  // 6. サービスの開始
   pService->start();
-
-  // 7. アドバタイズ（発見可能状態）の開始
   BLEAdvertising *pAdvertising = pServer->getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->start();
-  
-  Serial.println("アドバタイズ（待機中）... ブラウザから接続してください。");
+  Serial.println("Waiting for connection...");
 }
 
 void loop() {
-  // loop() では特に何もしません。
-  // すべての処理はコールバック（イベント）によって駆動されます。
-  delay(2000);
+  // --- 手動モード実行中 (manualIdが1~4の間) ---
+  if (manualId > 0) {
+    runPatternStep(manualId);
+    // runPatternStepの中でcheckStop()しているので、指を離せば次回ループでmanualId=0になり止まる
+    return; 
+  }
 }
