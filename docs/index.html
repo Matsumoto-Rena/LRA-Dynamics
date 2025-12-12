@@ -76,12 +76,17 @@
         const DIR_STOP  = 0;
         const DIR_UP    = 1;
         const DIR_DOWN  = 2;
-        const DIR_LEFT  = 3;
-        const DIR_RIGHT = 4;
+        const DIR_RIGHT = 3;
+        const DIR_LEFT = 4;
 
         let video, canvas, ctx;
         let bleCharacteristic;
         let cv; 
+
+        // 通信制限用の変数
+        let lastSendTime = 0;       // 最後に送信した時間
+        const SEND_INTERVAL = 150;  // 送信間隔（ミリ秒）。100〜200くらいが安定します
+        let isSending = false;      // 今、送信処理中かどうか
 
         // 状態管理
         let currentMode = 1; // 1 or 2
@@ -260,30 +265,29 @@
         }
 
         // Bluetooth接続
-        async function connectBluetooth() {
-            const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
-            const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
+        async function sendBleData(dataArray) {
+            // BLEがつながっていないなら何もしない
+            if (!bleCharacteristic) return;
+
+            // 1. 「送信中」なら、新しい命令は無視して捨てる（これが遅延防止の鍵！）
+            if (isSending) return;
+
+            // 2. 前回の送信から時間が経っていなければ無視する
+            const now = Date.now();
+            if (now - lastSendTime < SEND_INTERVAL) return;
+
             try {
-                const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true, optionalServices: [SERVICE_UUID]
-                });
-                const server = await device.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-                alert("接続完了！");
-            } catch (err) { alert("接続失敗: " + err); }
-        }
-
-        // データ送信 (モード1用)
-        async function sendManualCommand(directionCode) {
-            if (currentMode !== 1) return;
-            // ヘッダー: 0x01, 方向, 0(パディング)
-            await sendBleData(new Uint8Array([HEADER_MANUAL, directionCode, 0]));
-            console.log("Manual Send:", directionCode);
-        }
-
-        async function sendBleData(data) {
-            if (bleCharacteristic) await bleCharacteristic.writeValue(data);
+                isSending = true; // 「今から送るよ！」と旗を上げる
+                
+                await bleCharacteristic.writeValue(dataArray.buffer);
+                
+                lastSendTime = Date.now(); // 送信完了時間を記録
+                
+            } catch (err) {
+                console.error("送信エラー:", err);
+            } finally {
+                isSending = false; // 「送り終わったよ（または失敗したよ）」と旗を下ろす
+            }
         }
     </script>
 </body>
