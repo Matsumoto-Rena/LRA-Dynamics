@@ -157,8 +157,21 @@
             } catch(e){}
         }
 
+        // ★修正版: 動き出す瞬間に原点をセットする
         function startMoveSequence(dirCode, dirName) {
             if (currentMode !== 1 || isRecording) return;
+            
+            // 赤丸が見つかっていない(座標が0)なら動かない安全策
+            if (latestX === 0 && latestY === 0) {
+                alert("赤丸が見つかりません！");
+                return;
+            }
+
+            // ★ここが修正ポイント！
+            // ボタンを押した瞬間の座標を「原点」として更新する
+            originX = latestX;
+            originY = latestY;
+
             isRecording = true;
             recordStartTime = Date.now();
             currentDirectionStr = dirName;
