@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller (Green Tracking)</title>
+    <title>Hybrid Controller (Blue Tracking)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         
         /* 映像表示エリア */
         canvas { 
-            border: 4px solid #00ff00; /* 緑色の枠線 */
+            border: 4px solid #2196F3; /* 青色の枠線 */
             background-color: #000;
             width: 100%; max-width: 640px; height: auto; border-radius: 8px;
         }
@@ -22,7 +22,7 @@
         /* モード切替タブ */
         .mode-tabs { margin: 20px 0; display: flex; justify-content: center; gap: 10px; }
         .tab { padding: 10px 30px; font-size: 1.2em; opacity: 0.5; transition: 0.3s; background: #444; color: #fff;}
-        .tab.active { opacity: 1; background-color: #00E676; transform: scale(1.1); box-shadow: 0 0 10px #00E676; color: #000;}
+        .tab.active { opacity: 1; background-color: #2196F3; transform: scale(1.1); box-shadow: 0 0 10px #2196F3; color: #fff;}
 
         /* CSV保存エリア */
         #save-area { margin-top: 20px; display: none; }
@@ -36,7 +36,7 @@
             background: #444; color: white; font-size: 24px;
             border-radius: 10px; user-select: none;
         }
-        .d-btn:active { background: #00E676; color: #000; }
+        .d-btn:active { background: #2196F3; color: #fff; }
         .d-btn.disabled { opacity: 0.3; pointer-events: none; }
 
         #btn-up    { top: 0; left: 70px; }
@@ -49,7 +49,7 @@
     </style>
 </head>
 <body>
-    <h1>Hybrid Controller (Green Tracking)</h1>
+    <h1>Hybrid Controller (Blue Tracking)</h1>
     <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
 
@@ -182,7 +182,7 @@
             
             // マーカーが見つかっていない場合は中断
             if (latestX === 0 && latestY === 0) {
-                alert("緑色のマーカーが見つかりません！");
+                alert("青色のマーカーが見つかりません！");
                 return;
             }
 
@@ -228,14 +228,14 @@
 
             if (mode === 1) {
                 status.textContent = "モード1: 3秒記録モード";
-                status.style.color = "#00E676";
+                status.style.color = "#2196F3"; // 青文字
                 dpad.style.display = "block"; 
                 saveArea.style.display = "block"; 
                 // 切り替え時にも現在位置を仮の原点にする
                 originX = latestX; originY = latestY;
             } else {
-                status.textContent = "モード2: 緑色自動追尾中...";
-                status.style.color = "#00E676";
+                status.textContent = "モード2: 青色自動追尾中...";
+                status.style.color = "#2196F3";
                 dpad.style.display = "none"; 
                 saveArea.style.display = "none";
             }
@@ -264,7 +264,7 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `green_log_${Date.now()}.csv`;
+            a.download = `blue_log_${Date.now()}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
         }
@@ -290,9 +290,9 @@
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
                 let mask = new cv.Mat();
-                // 🟢 緑色認識 (H:35-85)
-                let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(35, 50, 50));
-                let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(85, 255, 255));
+                // 🔵 青色認識 (H:100-140)
+                let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(100, 60, 20));
+                let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(140, 255, 255));
                 cv.inRange(hsv, low, high, mask);
 
                 // 3. 輪郭抽出
@@ -313,8 +313,8 @@
 
                 if (bestContour) {
                     let rect = cv.boundingRect(bestContour);
-                    // 緑枠描画
-                    cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 3);
+                    // 青枠描画
+                    cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 100, 255, 255], 3);
 
                     // 座標計算 (0-255)
                     let cx = rect.x + rect.width / 2;
@@ -339,8 +339,8 @@
                                 relX: latestX - originX, // 相対座標
                                 relY: latestY - originY
                             });
-                            cv.circle(src, new cv.Point(30, 30), 10, [0, 255, 0, 255], -1); 
-                            cv.putText(src, "REC", new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [0, 255, 0, 255], 2);
+                            cv.circle(src, new cv.Point(30, 30), 10, [0, 100, 255, 255], -1); 
+                            cv.putText(src, "REC", new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [0, 100, 255, 255], 2);
                         } else {
                             cv.putText(src, "Mode 1: Log Ready", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 255, 255, 255], 2);
                         }
