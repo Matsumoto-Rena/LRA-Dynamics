@@ -16,9 +16,9 @@ bool isAutoRunning = false; // 自動ループ中か
 int manualId = 0;           // 手動実行中のパターンID (0=停止, 1~4=実行中)
 
 // --- パラメータ変数 ---
-int paramRes1 = 12;
+int paramRes1 = 13;
 int paramRep1 = 3;
-int paramRes2 = 15;
+int paramRes2 = 14;
 int paramRep2 = 1;
 int loopCount = 200;
 
