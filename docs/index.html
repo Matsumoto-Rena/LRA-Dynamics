@@ -3,35 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller (Red Tracking)</title>
+    <title>Hybrid Controller (Green Tracking)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         
+        /* 映像表示エリア */
         canvas { 
-            border: 4px solid #ff3333; /* 枠線を赤っぽくしました */
+            border: 4px solid #00ff00; /* 緑色の枠線 */
             background-color: #000;
             width: 100%; max-width: 640px; height: auto; border-radius: 8px;
         }
         video { display: none; }
 
+        /* ボタンデザイン */
         button { cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
         .btn-sys { font-size: 1.1em; padding: 10px 20px; margin: 5px; background-color: #607D8B; color: white; }
         
+        /* モード切替タブ */
         .mode-tabs { margin: 20px 0; display: flex; justify-content: center; gap: 10px; }
         .tab { padding: 10px 30px; font-size: 1.2em; opacity: 0.5; transition: 0.3s; background: #444; color: #fff;}
-        .tab.active { opacity: 1; background-color: #E91E63; transform: scale(1.1); box-shadow: 0 0 10px #E91E63;}
+        .tab.active { opacity: 1; background-color: #00E676; transform: scale(1.1); box-shadow: 0 0 10px #00E676; color: #000;}
 
+        /* CSV保存エリア */
         #save-area { margin-top: 20px; display: none; }
         .btn-save { font-size: 1.1em; padding: 10px 20px; background-color: #E91E63; color: white; }
         .btn-clear { font-size: 1.1em; padding: 10px 20px; background-color: #9E9E9E; color: white; margin-left: 10px; }
 
+        /* 十字キーエリア */
         #dpad-area { display: none; margin: 20px auto; width: 200px; height: 200px; position: relative; }
         .d-btn { 
             position: absolute; width: 60px; height: 60px; 
             background: #444; color: white; font-size: 24px;
             border-radius: 10px; user-select: none;
         }
-        .d-btn:active { background: #E91E63; }
+        .d-btn:active { background: #00E676; color: #000; }
         .d-btn.disabled { opacity: 0.3; pointer-events: none; }
 
         #btn-up    { top: 0; left: 70px; }
@@ -40,11 +45,11 @@
         #btn-right { top: 70px; right: 0; }
 
         #status { font-size: 1.2em; margin-bottom: 10px; color: #aaa; min-height: 1.5em; }
-        #loading { font-size: 1.1em; color: #aaa; margin-bottom: 10px;}
+        #loading { font-size: 1.1em; color: #aaa; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <h1>Hybrid Controller (Red Tracking)</h1>
+    <h1>Hybrid Controller (Green Tracking)</h1>
     <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
 
@@ -80,29 +85,39 @@
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
     <script>
-        // --- 1. 定数定義 ---
+        // ==========================================
+        // 1. 定数・変数の定義
+        // ==========================================
         const HEADER_MANUAL = 0x01;
         const HEADER_AUTO   = 0x02;
         const DIR_STOP = 0, DIR_UP = 1, DIR_DOWN = 2, DIR_LEFT = 3, DIR_RIGHT = 4;
         
-        let lastSendTime = 0;       
+        // 通信間引き用設定 (0.2秒間隔)
         const SEND_INTERVAL = 200; 
+        let lastSendTime = 0;       
         let isSending = false;      
 
+        // システム変数
         let video, canvas, ctx;
         let bleDevice, bleCharacteristic;
         let cv; 
+        
+        // 状態変数
         let currentMode = 1; 
         let latestX = 0, latestY = 0;
         let originX = 0, originY = 0;
 
+        // ログ記録用変数
         let recordedData = [];
         let isRecording = false;
         let recordStartTime = 0;
         let currentDirectionStr = "";
 
-        // --- 2. 関数定義 ---
+        // ==========================================
+        // 2. 関数定義
+        // ==========================================
 
+        // OpenCVのロード待機
         function waitForOpenCV() {
             if (window.cv && window.cv.Mat) {
                 cv = window.cv;
@@ -112,6 +127,7 @@
             }
         }
 
+        // カメラ起動処理
         async function startCamera() {
             if (!cv) { alert("OpenCVロード中..."); return; }
             try {
@@ -125,6 +141,7 @@
             } catch (err) { alert("カメラエラー: " + err); }
         }
 
+        // Bluetooth接続処理
         async function connectBluetooth() {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
@@ -139,6 +156,7 @@
             } catch (err) { alert("接続失敗: " + err); }
         }
 
+        // BLEデータ送信 (間引き機能付き)
         async function sendBleData(data) {
             if (!bleCharacteristic || isSending) return;
             if (Date.now() - lastSendTime < SEND_INTERVAL) return;
@@ -150,6 +168,7 @@
             finally { isSending = false; }
         }
 
+        // 手動コマンド即時送信 (間引きなし)
         async function sendManualCommand(code) {
             if (!bleCharacteristic) return;
             try {
@@ -157,18 +176,17 @@
             } catch(e){}
         }
 
-        // ★修正版: 動き出す瞬間に原点をセットする
+        // 3秒間の移動シーケンス開始
         function startMoveSequence(dirCode, dirName) {
             if (currentMode !== 1 || isRecording) return;
             
-            // 赤丸が見つかっていない(座標が0)なら動かない安全策
+            // マーカーが見つかっていない場合は中断
             if (latestX === 0 && latestY === 0) {
-                alert("赤丸が見つかりません！");
+                alert("緑色のマーカーが見つかりません！");
                 return;
             }
 
-            // ★ここが修正ポイント！
-            // ボタンを押した瞬間の座標を「原点」として更新する
+            // ★重要: 動き出す直前の位置を原点とする
             originX = latestX;
             originY = latestY;
 
@@ -180,6 +198,7 @@
             sendManualCommand(dirCode);
             document.getElementById('status').textContent = `動作中: ${dirName} (3秒間)`;
 
+            // 3秒後に停止
             setTimeout(() => {
                 sendManualCommand(DIR_STOP);
                 isRecording = false;
@@ -189,6 +208,7 @@
             }, 3000);
         }
 
+        // UI制御系
         function toggleButtons(enable) {
             const btns = document.querySelectorAll('.d-btn');
             btns.forEach(b => {
@@ -197,6 +217,40 @@
             });
         }
 
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('mode1Btn').className = mode === 1 ? 'tab active' : 'tab';
+            document.getElementById('mode2Btn').className = mode === 2 ? 'tab active' : 'tab';
+            
+            const status = document.getElementById('status');
+            const dpad = document.getElementById('dpad-area');
+            const saveArea = document.getElementById('save-area');
+
+            if (mode === 1) {
+                status.textContent = "モード1: 3秒記録モード";
+                status.style.color = "#00E676";
+                dpad.style.display = "block"; 
+                saveArea.style.display = "block"; 
+                // 切り替え時にも現在位置を仮の原点にする
+                originX = latestX; originY = latestY;
+            } else {
+                status.textContent = "モード2: 緑色自動追尾中...";
+                status.style.color = "#00E676";
+                dpad.style.display = "none"; 
+                saveArea.style.display = "none";
+            }
+        }
+
+        function updateLogCount() {
+            document.getElementById('log-count').textContent = `データ数: ${recordedData.length}行`;
+        }
+
+        function clearLog() {
+            recordedData = [];
+            updateLogCount();
+        }
+
+        // CSV保存処理
         function saveCSV() {
             if (recordedData.length === 0) {
                 alert("データがありません");
@@ -210,55 +264,17 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `red_log_${Date.now()}.csv`;
+            a.download = `green_log_${Date.now()}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
         }
 
-        function clearLog() {
-            recordedData = [];
-            updateLogCount();
-        }
-
-        function updateLogCount() {
-            document.getElementById('log-count').textContent = `データ数: ${recordedData.length}行`;
-        }
-
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('mode1Btn').className = mode === 1 ? 'tab active' : 'tab';
-            document.getElementById('mode2Btn').className = mode === 2 ? 'tab active' : 'tab';
-            
-            const status = document.getElementById('status');
-            const dpad = document.getElementById('dpad-area');
-            const saveArea = document.getElementById('save-area');
-
-            if (mode === 1) {
-                status.textContent = "モード1: 3秒記録モード (原点設定済)";
-                status.style.color = "#E91E63";
-                dpad.style.display = "block"; 
-                saveArea.style.display = "block"; 
-                originX = latestX;
-                originY = latestY;
-            } else {
-                status.textContent = "モード2: 赤色自動追尾中...";
-                status.style.color = "#00E676";
-                dpad.style.display = "none"; 
-                saveArea.style.display = "none";
-            }
-        }
-
-        function setupDpad() {
-            document.getElementById('btn-up').onclick    = () => startMoveSequence(DIR_UP, "UP");
-            document.getElementById('btn-down').onclick  = () => startMoveSequence(DIR_DOWN, "DOWN");
-            document.getElementById('btn-left').onclick  = () => startMoveSequence(DIR_LEFT, "LEFT");
-            document.getElementById('btn-right').onclick = () => startMoveSequence(DIR_RIGHT, "RIGHT");
-        }
-
+        // メイン画像処理ループ
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) return;
 
+                // 1. 映像取得と描画
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
                 if (vw > 0 && vh > 0) {
@@ -267,29 +283,19 @@
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 }
 
+                // 2. OpenCV処理
                 let src = cv.matFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
                 let hsv = new cv.Mat();
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-                // --- 🔴 赤色認識ロジック (ここが変わりました) ---
                 let mask = new cv.Mat();
-                let mask1 = new cv.Mat();
-                let mask2 = new cv.Mat();
+                // 🟢 緑色認識 (H:35-85)
+                let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(35, 50, 50));
+                let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(85, 255, 255));
+                cv.inRange(hsv, low, high, mask);
 
-                // 赤の範囲1 (0〜10)
-                let low1 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(0, 100, 80));
-                let high1 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(10, 255, 255));
-                cv.inRange(hsv, low1, high1, mask1);
-
-                // 赤の範囲2 (170〜180)
-                let low2 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(170, 100, 80));
-                let high2 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(180, 255, 255));
-                cv.inRange(hsv, low2, high2, mask2);
-
-                // 2つの範囲を合体
-                cv.bitwise_or(mask1, mask2, mask);
-
+                // 3. 輪郭抽出
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
                 cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -307,15 +313,18 @@
 
                 if (bestContour) {
                     let rect = cv.boundingRect(bestContour);
-                    // 枠線を赤色に
-                    cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [255, 0, 0, 255], 3);
+                    // 緑枠描画
+                    cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 255, 0, 255], 3);
 
+                    // 座標計算 (0-255)
                     let cx = rect.x + rect.width / 2;
                     let cy = rect.y + rect.height / 2;
                     latestX = Math.round((cx / canvas.width) * 255);
                     latestY = Math.round((cy / canvas.height) * 255);
 
+                    // 4. モード別処理
                     if (currentMode === 1) {
+                        // モード1: ログ記録
                         let ox = (originX / 255) * canvas.width;
                         let oy = (originY / 255) * canvas.height;
                         cv.drawMarker(src, new cv.Point(ox, oy), [255, 255, 0, 255], cv.MARKER_CROSS, 20, 2);
@@ -327,37 +336,40 @@
                                 input: currentDirectionStr,
                                 x: latestX,
                                 y: latestY,
-                                relX: latestX - originX,
+                                relX: latestX - originX, // 相対座標
                                 relY: latestY - originY
                             });
-                            cv.circle(src, new cv.Point(30, 30), 10, [255, 0, 0, 255], -1); 
-                            cv.putText(src, "REC", new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 0, 0, 255], 2);
+                            cv.circle(src, new cv.Point(30, 30), 10, [0, 255, 0, 255], -1); 
+                            cv.putText(src, "REC", new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [0, 255, 0, 255], 2);
                         } else {
-                            cv.putText(src, "Mode 1: Red Log Ready", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 255, 255, 255], 2);
+                            cv.putText(src, "Mode 1: Log Ready", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 255, 255, 255], 2);
                         }
 
                     } else if (currentMode === 2) {
+                        // モード2: 自動追尾
                         sendBleData(new Uint8Array([HEADER_AUTO, latestX, latestY]));
-                        let text = `Auto(Red): ${latestX}, ${latestY}`;
+                        let text = `Auto: ${latestX}, ${latestY}`;
                         cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
                     }
                 }
 
                 cv.imshow('canvas', src);
-                // メモリ解放 (増えた分も忘れずに)
-                src.delete(); hsv.delete(); mask.delete(); mask1.delete(); mask2.delete();
-                low1.delete(); high1.delete(); low2.delete(); high2.delete();
-                contours.delete(); hierarchy.delete();
+                // メモリ解放
+                src.delete(); hsv.delete(); mask.delete(); low.delete(); high.delete(); contours.delete(); hierarchy.delete();
 
             } catch (err) { console.error(err); } 
             finally { requestAnimationFrame(processVideo); }
         }
 
+        // ==========================================
+        // 3. 初期化処理
+        // ==========================================
         window.onload = () => {
             video = document.getElementById('webcam');
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d', { willReadFrequently: true });
             
+            // イベントリスナ設定
             document.getElementById('startButton').onclick = startCamera;
             document.getElementById('connectButton').onclick = connectBluetooth;
             document.getElementById('mode1Btn').onclick = () => setMode(1);
@@ -365,7 +377,12 @@
             document.getElementById('saveBtn').onclick = saveCSV;
             document.getElementById('clearBtn').onclick = clearLog;
 
-            setupDpad();
+            // 十字キー設定
+            document.getElementById('btn-up').onclick    = () => startMoveSequence(DIR_UP, "UP");
+            document.getElementById('btn-down').onclick  = () => startMoveSequence(DIR_DOWN, "DOWN");
+            document.getElementById('btn-left').onclick  = () => startMoveSequence(DIR_LEFT, "LEFT");
+            document.getElementById('btn-right').onclick = () => startMoveSequence(DIR_RIGHT, "RIGHT");
+
             setMode(1);
             waitForOpenCV();
         };
