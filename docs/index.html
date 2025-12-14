@@ -3,436 +3,259 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller (Compare Modes)</title>
+    <title>Hybrid Controller (Classic Style)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
-        
-        /* 映像表示エリア */
-        canvas { 
-            border: 4px solid #2196F3; /* 青色の枠線 */
-            background-color: #000;
-            width: 100%; max-width: 640px; height: auto; border-radius: 8px;
-        }
+        canvas { border: 4px solid #2196F3; background-color: #000; width: 100%; max-width: 640px; height: auto; border-radius: 8px; }
         video { display: none; }
-
-        /* ボタンデザイン */
         button { cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
         .btn-sys { font-size: 1.1em; padding: 10px 20px; margin: 5px; background-color: #607D8B; color: white; }
-        
-        /* モード切替タブ */
         .mode-tabs { margin: 20px 0; display: flex; justify-content: center; gap: 10px; }
         .tab { padding: 10px 30px; font-size: 1.2em; opacity: 0.5; transition: 0.3s; background: #444; color: #fff;}
-        
-        /* モード1: オレンジ (記録のみ) */
         .tab.mode1.active { opacity: 1; background-color: #FF9800; transform: scale(1.1); box-shadow: 0 0 10px #FF9800; color: #fff;}
-        /* モード2: 青 (補正あり) */
         .tab.mode2.active { opacity: 1; background-color: #2196F3; transform: scale(1.1); box-shadow: 0 0 10px #2196F3; color: #fff;}
-
-        /* CSV保存エリア */
         #save-area { margin-top: 20px; display: none; }
         .btn-save { font-size: 1.1em; padding: 10px 20px; background-color: #E91E63; color: white; }
         .btn-clear { font-size: 1.1em; padding: 10px 20px; background-color: #9E9E9E; color: white; margin-left: 10px; }
-
-        /* 十字キーエリア */
         #dpad-area { display: none; margin: 20px auto; width: 200px; height: 200px; position: relative; }
-        .d-btn { 
-            position: absolute; width: 60px; height: 60px; 
-            background: #444; color: white; font-size: 24px;
-            border-radius: 10px; user-select: none;
-        }
+        .d-btn { position: absolute; width: 60px; height: 60px; background: #444; color: white; font-size: 24px; border-radius: 10px; user-select: none; }
         .d-btn:active { background: #999; color: #fff; }
-        .d-btn.disabled { opacity: 0.3; pointer-events: none; }
-
-        #btn-up    { top: 0; left: 70px; }
-        #btn-down  { bottom: 0; left: 70px; }
-        #btn-left  { top: 70px; left: 0; }
-        #btn-right { top: 70px; right: 0; }
-
+        #btn-up { top: 0; left: 70px; } #btn-down { bottom: 0; left: 70px; }
+        #btn-left { top: 70px; left: 0; } #btn-right { top: 70px; right: 0; }
         #status { font-size: 1.2em; margin-bottom: 10px; color: #aaa; min-height: 1.5em; }
         #loading { font-size: 1.1em; color: #aaa; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <h1>Hybrid Controller (Compare Modes)</h1>
+    <h1>Hybrid Controller (Classic Style)</h1>
     <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
-
     <canvas id="canvas"></canvas>
     <video id="webcam" autoplay playsinline></video>
-
     <div>
         <button id="startButton" class="btn-sys">① カメラ起動</button>
         <button id="connectButton" class="btn-sys">② Bluetooth 接続</button>
     </div>
-
     <hr style="border-color: #444; margin: 20px;">
-
     <div class="mode-tabs">
         <button id="mode1Btn" class="tab mode1 active">Mode 1: 記録のみ (Open Loop)</button>
         <button id="mode2Btn" class="tab mode2">Mode 2: 補正あり (Feedback)</button>
     </div>
-
     <div id="save-area">
         <span id="log-count">データ数: 0</span>
         <br><br>
         <button id="saveBtn" class="btn-save">💾 CSV保存</button>
         <button id="clearBtn" class="btn-clear">🗑️ クリア</button>
     </div>
-
     <div id="dpad-area">
         <button id="btn-up" class="d-btn">▲</button>
         <button id="btn-left" class="d-btn">◀</button>
         <button id="btn-right" class="d-btn">▶</button>
         <button id="btn-down" class="d-btn">▼</button>
     </div>
-
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-
     <script>
-        // ==========================================
-        // 1. 定数・変数の定義
-        // ==========================================
+        // ★色認識の設定 (ここを調整！)
+        const COLOR_MIN = [100, 60, 20, 0];
+        const COLOR_MAX = [140, 255, 255, 255];
+
         const HEADER_MANUAL = 0x01; 
         const DIR_STOP = 0, DIR_UP = 1, DIR_DOWN = 2, DIR_LEFT = 3, DIR_RIGHT = 4;
         
-        const SEND_INTERVAL = 150; 
-        let lastSendTime = 0;       
-        let isSending = false;      
-
-        let video, canvas, ctx;
-        let bleDevice, bleCharacteristic;
-        let cv; 
+        let video, canvas, ctx, bleDevice, bleCharacteristic, cv; 
+        let currentMode = 1; let latestX = 0, latestY = 0; let originX = 0, originY = 0;
+        let recordedData = []; let isRecording = false; let recordStartTime = 0;
         
-        let currentMode = 1; 
-        let latestX = 0, latestY = 0;
-        let originX = 0, originY = 0;
-
-        let recordedData = [];
-        let isRecording = false; 
-        let recordStartTime = 0;
-        let targetDirection = DIR_STOP; 
+        let lastSentCmd = -1; let isBusy = false;
         let activeCommandStr = "STOP"; 
-
-        // ==========================================
-        // 2. 関数定義
-        // ==========================================
+        let targetDirection = DIR_STOP;
 
         function waitForOpenCV() {
-            if (window.cv && window.cv.Mat) {
-                cv = window.cv;
-                document.getElementById('loading').textContent = "OpenCV.js 準備完了！";
-            } else {
-                setTimeout(waitForOpenCV, 500);
-            }
+            if (window.cv && window.cv.Mat) { cv = window.cv; document.getElementById('loading').textContent = "OpenCV.js 準備完了！"; } 
+            else setTimeout(waitForOpenCV, 500);
         }
-
         async function startCamera() {
-            if (!cv) { alert("OpenCVロード中..."); return; }
+            if (!cv) { alert("OpenCVロード中"); return; }
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
-                    audio: false 
-                });
-                video.srcObject = stream;
-                await video.play(); 
-                requestAnimationFrame(processVideo);
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+                video.srcObject = stream; await video.play(); requestAnimationFrame(processVideo);
             } catch (err) { alert("カメラエラー: " + err); }
         }
-
         async function connectBluetooth() {
-            const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
-            const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
             try {
-                bleDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true, optionalServices: [SERVICE_UUID]
-                });
+                bleDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ['0000aaaa-0000-1000-8000-00805f9b34fb'] });
                 const server = await bleDevice.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                const service = await server.getPrimaryService('0000aaaa-0000-1000-8000-00805f9b34fb');
+                bleCharacteristic = await service.getCharacteristic('0000bbbb-0000-1000-8000-00805f9b34fb');
                 alert("接続完了！");
+                document.getElementById('connectButton').style.backgroundColor = "#4CAF50";
             } catch (err) { alert("接続失敗: " + err); }
         }
 
-        async function sendBleData(data) {
-            if (!bleCharacteristic || isSending) return;
-            if (Date.now() - lastSendTime < SEND_INTERVAL) return;
-            try {
-                isSending = true;
-                await bleCharacteristic.writeValue(data);
-                lastSendTime = Date.now();
-            } catch (err) { console.error(err); } 
-            finally { isSending = false; }
-        }
+        async function updateRobotCommand(cmd, strLabel, forceBurst = false) {
+            activeCommandStr = strLabel;
+            if (!forceBurst && cmd === lastSentCmd) return;
+            if (isBusy) return;
 
-        async function sendManualCommand(code) {
+            isBusy = true; lastSentCmd = cmd;
+            try {
+                if (forceBurst || cmd === DIR_STOP) await sendBurst(cmd);
+                else await sendSingle(cmd);
+            } catch (err) { console.error(err); lastSentCmd = -1; } 
+            finally { isBusy = false; }
+        }
+        async function sendSingle(cmd) { if (bleCharacteristic) await bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, cmd, 0])); }
+        async function sendBurst(cmd) {
             if (!bleCharacteristic) return;
-            try {
-                await bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, code, 0]));
-            } catch(e){}
+            for (let i = 0; i < 3; i++) {
+                try { await bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, cmd, 0])); } catch(e){} 
+                await new Promise(r => setTimeout(r, 20));
+            }
         }
 
-    // ↓ 修正後の startMoveSequence 関数
-    function startMoveSequence(dirCode, dirName) {
-        if (isRecording) return;
-        
-        if (latestX === 0 && latestY === 0) {
-            alert("青色のマーカーが見つかりません！");
-            return;
-        }
-
-        originX = latestX;
-        originY = latestY;
-
-        isRecording = true;
-        recordStartTime = Date.now();
-        targetDirection = dirCode;
-        
-        toggleButtons(false);
-        sendManualCommand(dirCode); // ★「スタート」だけ送る！
-
-        let modeName = (currentMode === 1) ? "記録のみ" : "補正あり";
-        document.getElementById('status').textContent = `走行中 (${modeName}): ${dirName}`;
-
-        // 3.5秒後にWeb側の記録を止める（マイコンは3.0秒で勝手に止まる想定）
-        setTimeout(() => {
-            // sendManualCommand(DIR_STOP);  <--- ★この行を削除！！（通信しない）
+        // 3秒シーケンス (★旧仕様: 3秒後に停止信号を送る)
+        function startMoveSequence(dirCode, dirName) {
+            if (isRecording) return;
+            if (latestX === 0 && latestY === 0) { alert("青色マーカーが見つかりません"); return; }
             
-            isRecording = false;
-            targetDirection = DIR_STOP;
-            activeCommandStr = "STOP"; // 表示上のステータスだけ戻す
-            toggleButtons(true);
-            document.getElementById('status').textContent = "完了";
-            updateLogCount();
-        }, 3500); // 念のため記録は少し長く(3.5秒)とる
-    }
+            originX = latestX; originY = latestY;
+            targetDirection = dirCode;
+            isRecording = true;
+            recordStartTime = Date.now();
+            
+            toggleButtons(false);
+            
+            // 指令送信 (バースト)
+            lastSentCmd = -1; 
+            updateRobotCommand(dirCode, (currentMode === 1) ? "STRAIGHT(NO_CTRL)" : "STRAIGHT(CTRL)", true);
+            
+            let modeName = (currentMode === 1) ? "記録のみ" : "補正あり";
+            document.getElementById('status').textContent = `走行中 (${modeName}): ${dirName}`;
+
+            // 3秒後に停止信号を送る！
+            setTimeout(async () => {
+                // ★ここを復活させました！
+                await updateRobotCommand(DIR_STOP, "STOP", true);
+                
+                isRecording = false;
+                targetDirection = DIR_STOP;
+                toggleButtons(true);
+                document.getElementById('status').textContent = "完了";
+                updateLogCount();
+            }, 3000); 
+        }
 
         function toggleButtons(enable) {
             const btns = document.querySelectorAll('.d-btn');
-            btns.forEach(b => {
-                if(enable) b.classList.remove('disabled');
-                else b.classList.add('disabled');
-            });
+            btns.forEach(b => { if(enable) b.classList.remove('disabled'); else b.classList.add('disabled'); });
         }
-
         function setMode(mode) {
             currentMode = mode;
             document.getElementById('mode1Btn').className = (mode === 1) ? 'tab mode1 active' : 'tab mode1';
             document.getElementById('mode2Btn').className = (mode === 2) ? 'tab mode2 active' : 'tab mode2';
-            
-            const status = document.getElementById('status');
-            const dpad = document.getElementById('dpad-area');
-            const saveArea = document.getElementById('save-area');
-
-            // 両方のモードで十字キーと保存ボタンを使う
-            dpad.style.display = "block"; 
-            saveArea.style.display = "block"; 
-
-            if (mode === 1) {
-                status.textContent = "Mode 1: 制御なし (記録のみ)";
-                status.style.color = "#FF9800"; 
-            } else {
-                status.textContent = "Mode 2: フィードバック制御あり";
-                status.style.color = "#2196F3";
-            }
+            document.getElementById('dpad-area').style.display = "block"; 
+            document.getElementById('save-area').style.display = "block"; 
+            if (mode === 1) document.getElementById('status').textContent = "Mode 1: 制御なし (記録のみ)";
+            else document.getElementById('status').textContent = "Mode 2: フィードバック制御あり";
             originX = latestX; originY = latestY;
         }
-
-        function updateLogCount() {
-            document.getElementById('log-count').textContent = `データ数: ${recordedData.length}行`;
-        }
-
-        function clearLog() {
-            recordedData = [];
-            updateLogCount();
-        }
-
+        function updateLogCount() { document.getElementById('log-count').textContent = `データ数: ${recordedData.length}行`; }
+        function clearLog() { recordedData = []; updateLogCount(); }
         function saveCSV() {
-            if (recordedData.length === 0) {
-                alert("データがありません");
-                return;
-            }
-            let csvContent = "Time(ms),Mode,TargetInput,ActualCommand,RawX,RawY,RelX,RelY\n";
-            recordedData.forEach(row => {
-                csvContent += `${row.time},${row.mode},${row.input},${row.act},${row.x},${row.y},${row.relX},${row.relY}\n`;
-            });
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `compare_log_${Date.now()}.csv`;
-            a.click();
-            window.URL.revokeObjectURL(url);
+            if (recordedData.length === 0) return;
+            let csv = "Time(ms),Mode,TargetInput,ActualCommand,RawX,RawY,RelX,RelY\n";
+            recordedData.forEach(r => { csv += `${r.time},${r.mode},${r.input},${r.act},${r.x},${r.y},${r.relX},${r.relY}\n`; });
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            const a = document.createElement('a'); a.href = url; a.download = `log_${Date.now()}.csv`; a.click();
         }
 
-        // ==========================================
-        // 3. 制御ロジック
-        // ==========================================
-        function calculateCommand() {
-            // 現在のモードと、記録中かどうかチェック
-            if (!isRecording) return { cmd: DIR_STOP, str: "STOP" };
-
-            // 共通: ズレの計算
-            let errorX = latestX - originX;
-            let errorY = latestY - originY;
-            
-            // --- Mode 1: 制御なし (Open Loop) ---
-            if (currentMode === 1) {
-                // ズレていようが、ひたすら目標方向を返す
-                return { cmd: targetDirection, str: "STRAIGHT(NO_CTRL)" };
-            }
-
-            // --- Mode 2: 制御あり (Feedback) ---
-            if (currentMode === 2) {
-                const DEADZONE = 30; // 許容誤差
-                
-                // UP(前進)中の補正
-                if (targetDirection === DIR_UP) {
-                    if (errorX > DEADZONE) {
-                        return { cmd: DIR_LEFT, str: "CORRECT_LEFT" };
-                    } else if (errorX < -DEADZONE) {
-                        return { cmd: DIR_RIGHT, str: "CORRECT_RIGHT" };
-                    }
-                }
-                // DOWN(後退)中の補正
-                else if (targetDirection === DIR_DOWN) {
-                    if (errorX > DEADZONE) {
-                        return { cmd: DIR_LEFT, str: "CORRECT_LEFT" };
-                    } else if (errorX < -DEADZONE) {
-                        return { cmd: DIR_RIGHT, str: "CORRECT_RIGHT" };
-                    }
-                }
-                // ズレてなければ直進
-                return { cmd: targetDirection, str: "STRAIGHT(CTRL)" };
-            }
-            
-            return { cmd: DIR_STOP, str: "STOP" };
-        }
-
-        // ==========================================
-        // 4. メインループ
-        // ==========================================
         function processVideo() {
+            requestAnimationFrame(processVideo);
             try {
                 if (!cv || video.paused || video.ended) return;
-
-                let vw = video.videoWidth;
-                let vh = video.videoHeight;
-                if (vw > 0 && vh > 0) {
-                    let aspect = vh / vw;
-                    canvas.width = 640; canvas.height = 640 * aspect;
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                }
+                let vw = video.videoWidth; let vh = video.videoHeight;
+                if (vw === 0) return;
+                
+                if (canvas.width !== 640) { canvas.width = 640; canvas.height = 640 * (vh / vw); }
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
                 let src = cv.matFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
-                let hsv = new cv.Mat();
-                cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
-                cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
-
+                let hsv = new cv.Mat(); cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+                
                 let mask = new cv.Mat();
-                // 🔵 青色認識
-                let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(100, 60, 20));
-                let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(140, 255, 255));
+                let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(COLOR_MIN[0], COLOR_MIN[1], COLOR_MIN[2]));
+                let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(COLOR_MAX[0], COLOR_MAX[1], COLOR_MAX[2]));
                 cv.inRange(hsv, low, high, mask);
 
-                let contours = new cv.MatVector();
-                let hierarchy = new cv.Mat();
+                let contours = new cv.MatVector(); let hierarchy = new cv.Mat();
                 cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                let maxArea = 0;
-                let bestContour = null;
+                let maxArea = 0; let bestContour = null;
                 for (let i = 0; i < contours.size(); ++i) {
-                    let cnt = contours.get(i);
-                    let area = cv.contourArea(cnt, false);
-                    if (area > 20 && area > maxArea) {
-                        maxArea = area;
-                        bestContour = cnt;
-                    }
+                    let area = cv.contourArea(contours.get(i), false);
+                    if (area > 20 && area > maxArea) { maxArea = area; bestContour = contours.get(i); }
                 }
 
                 if (bestContour) {
                     let rect = cv.boundingRect(bestContour);
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 100, 255, 255], 3);
+                    
+                    // ★修正: 0-640座標のまま保存
+                    latestX = Math.round(rect.x + rect.width/2);
+                    latestY = Math.round(rect.y + rect.height/2);
+                    
+                    let ox = (originX / 255) * canvas.width; let oy = (originY / 255) * canvas.height;
+                    // 原点は初期化時が 0 なので、表示用に換算が必要ない場合もあるが、とりあえず描画
+                    if(originX !== 0) cv.drawMarker(src, new cv.Point(originX, originY), [255, 255, 0, 255], cv.MARKER_CROSS, 20, 2);
 
-                    let cx = rect.x + rect.width / 2;
-                    let cy = rect.y + rect.height / 2;
-                    latestX = Math.round((cx / canvas.width) * 255);
-                    latestY = Math.round((cy / canvas.height) * 255);
-
-                    // 原点表示
-                    let ox = (originX / 255) * canvas.width;
-                    let oy = (originY / 255) * canvas.height;
-                    cv.drawMarker(src, new cv.Point(ox, oy), [255, 255, 0, 255], cv.MARKER_CROSS, 20, 2);
-
-                    // 記録＆制御
                     if (isRecording) {
-                        // 次に送るコマンドを計算 (Mode 1なら直進のみ、Mode 2なら補正あり)
-                        let result = calculateCommand();
-                        activeCommandStr = result.str;
-
-                        // コマンド送信
-                        sendBleData(new Uint8Array([HEADER_MANUAL, result.cmd, 0]));
-
-                        // ログ保存
-                        let currentTime = Date.now() - recordStartTime;
-                        let targetStr = (targetDirection===DIR_UP)?"UP":(targetDirection===DIR_DOWN)?"DOWN":"OTHER";
+                        let timeElapsed = Date.now() - recordStartTime;
                         
-                        recordedData.push({
-                            time: currentTime,
-                            mode: currentMode, // どっちのモードの実験データか記録
-                            input: targetStr,
-                            act: activeCommandStr,
-                            x: latestX,
-                            y: latestY,
-                            relX: latestX - originX,
-                            relY: latestY - originY
-                        });
-
-                        // 画面表示
-                        cv.circle(src, new cv.Point(30, 30), 10, [0, 255, 255, 255], -1); 
-                        cv.putText(src, `REC(M${currentMode}): ${activeCommandStr}`, new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.7, [255, 255, 255, 255], 2);
-                        
-                        // 補正ライン(Mode 2のときだけ表示すると親切)
+                        // Mode 2の補正制御
                         if (currentMode === 2) {
-                            let deadzonePx = (30 / 255) * canvas.width;
-                            cv.line(src, new cv.Point(ox - deadzonePx, 0), new cv.Point(ox - deadzonePx, canvas.height), [100, 100, 100, 255], 1);
-                            cv.line(src, new cv.Point(ox + deadzonePx, 0), new cv.Point(ox + deadzonePx, canvas.height), [100, 100, 100, 255], 1);
+                            const DEADZONE = 30; // ピクセル単位
+                            let errorX = latestX - originX;
+                            
+                            // UP方向の補正
+                            if (targetDirection === DIR_UP) {
+                                if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
+                                else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
+                                else updateRobotCommand(DIR_UP, "STRAIGHT(CTRL)");
+                            }
+                            // DOWN方向の補正
+                            else if (targetDirection === DIR_DOWN) {
+                                if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
+                                else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
+                                else updateRobotCommand(DIR_DOWN, "STRAIGHT(CTRL)");
+                            }
+                        } 
+                        recordedData.push({ time: timeElapsed, mode: currentMode, input: "AUTO", act: activeCommandStr, x: latestX, y: latestY, relX: latestX-originX, relY: latestY-originY });
+                        cv.circle(src, new cv.Point(30, 30), 10, [0, 255, 255, 255], -1);
+                        cv.putText(src, `REC ${timeElapsed}ms`, new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.7, [255, 255, 255, 255], 2);
+                        
+                        if(currentMode===2) {
+                            // 補正ライン表示
+                            let dz = DEADZONE; 
+                            cv.line(src, new cv.Point(originX-dz,0), new cv.Point(originX-dz,canvas.height), [100,100,100,255], 1);
+                            cv.line(src, new cv.Point(originX+dz,0), new cv.Point(originX+dz,canvas.height), [100,100,100,255], 1);
                         }
-
                     } else {
                         cv.putText(src, `Ready (Mode ${currentMode})`, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 255, 255, 255], 2);
                     }
                 }
-
-                cv.imshow('canvas', src);
+                cv.imshow('canvas', src); 
                 src.delete(); hsv.delete(); mask.delete(); low.delete(); high.delete(); contours.delete(); hierarchy.delete();
-
-            } catch (err) { console.error(err); } 
-            finally { requestAnimationFrame(processVideo); }
+            } catch (err) { console.error(err); }
         }
 
-        // ==========================================
-        // 5. 初期化
-        // ==========================================
         window.onload = () => {
-            video = document.getElementById('webcam');
-            canvas = document.getElementById('canvas');
-            ctx = canvas.getContext('2d', { willReadFrequently: true });
-            
-            document.getElementById('startButton').onclick = startCamera;
-            document.getElementById('connectButton').onclick = connectBluetooth;
-            document.getElementById('mode1Btn').onclick = () => setMode(1);
-            document.getElementById('mode2Btn').onclick = () => setMode(2);
-            document.getElementById('saveBtn').onclick = saveCSV;
-            document.getElementById('clearBtn').onclick = clearLog;
-
-            // 十字キー
-            document.getElementById('btn-up').onclick    = () => startMoveSequence(DIR_UP, "UP");
-            document.getElementById('btn-down').onclick  = () => startMoveSequence(DIR_DOWN, "DOWN");
-            document.getElementById('btn-left').onclick  = () => startMoveSequence(DIR_LEFT, "LEFT");
-            document.getElementById('btn-right').onclick = () => startMoveSequence(DIR_RIGHT, "RIGHT");
-
-            setMode(1);
-            waitForOpenCV();
+            video = document.getElementById('webcam'); canvas = document.getElementById('canvas'); ctx = canvas.getContext('2d', { willReadFrequently: true });
+            document.getElementById('startButton').onclick = startCamera; document.getElementById('connectButton').onclick = connectBluetooth;
+            document.getElementById('mode1Btn').onclick = () => setMode(1); document.getElementById('mode2Btn').onclick = () => setMode(2);
+            document.getElementById('saveBtn').onclick = saveCSV; document.getElementById('clearBtn').onclick = clearLog;
+            document.getElementById('btn-up').onclick = () => startMoveSequence(DIR_UP, "UP");
+            document.getElementById('btn-down').onclick = () => startMoveSequence(DIR_DOWN, "DOWN");
+            setMode(1); waitForOpenCV();
         };
     </script>
 </body>
