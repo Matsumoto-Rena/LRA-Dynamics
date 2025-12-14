@@ -171,37 +171,40 @@
             } catch(e){}
         }
 
-        // 3秒移動シーケンス (両モード共通)
-        function startMoveSequence(dirCode, dirName) {
-            if (isRecording) return;
-            
-            if (latestX === 0 && latestY === 0) {
-                alert("青色のマーカーが見つかりません！");
-                return;
-            }
-
-            originX = latestX;
-            originY = latestY;
-
-            isRecording = true;
-            recordStartTime = Date.now();
-            targetDirection = dirCode;
-            
-            toggleButtons(false);
-            sendManualCommand(dirCode); // スタート指令
-
-            let modeName = (currentMode === 1) ? "記録のみ" : "補正あり";
-            document.getElementById('status').textContent = `走行中 (${modeName}): ${dirName}`;
-
-            setTimeout(() => {
-                sendManualCommand(DIR_STOP);
-                isRecording = false;
-                targetDirection = DIR_STOP;
-                toggleButtons(true);
-                document.getElementById('status').textContent = "待機中";
-                updateLogCount();
-            }, 3000);
+    // ↓ 修正後の startMoveSequence 関数
+    function startMoveSequence(dirCode, dirName) {
+        if (isRecording) return;
+        
+        if (latestX === 0 && latestY === 0) {
+            alert("青色のマーカーが見つかりません！");
+            return;
         }
+
+        originX = latestX;
+        originY = latestY;
+
+        isRecording = true;
+        recordStartTime = Date.now();
+        targetDirection = dirCode;
+        
+        toggleButtons(false);
+        sendManualCommand(dirCode); // ★「スタート」だけ送る！
+
+        let modeName = (currentMode === 1) ? "記録のみ" : "補正あり";
+        document.getElementById('status').textContent = `走行中 (${modeName}): ${dirName}`;
+
+        // 3.5秒後にWeb側の記録を止める（マイコンは3.0秒で勝手に止まる想定）
+        setTimeout(() => {
+            // sendManualCommand(DIR_STOP);  <--- ★この行を削除！！（通信しない）
+            
+            isRecording = false;
+            targetDirection = DIR_STOP;
+            activeCommandStr = "STOP"; // 表示上のステータスだけ戻す
+            toggleButtons(true);
+            document.getElementById('status').textContent = "完了";
+            updateLogCount();
+        }, 3500); // 念のため記録は少し長く(3.5秒)とる
+    }
 
         function toggleButtons(enable) {
             const btns = document.querySelectorAll('.d-btn');
