@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller (Blue Tracking)</title>
+    <title>Hybrid Controller (Compare Modes)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         
@@ -22,7 +22,11 @@
         /* モード切替タブ */
         .mode-tabs { margin: 20px 0; display: flex; justify-content: center; gap: 10px; }
         .tab { padding: 10px 30px; font-size: 1.2em; opacity: 0.5; transition: 0.3s; background: #444; color: #fff;}
-        .tab.active { opacity: 1; background-color: #2196F3; transform: scale(1.1); box-shadow: 0 0 10px #2196F3; color: #fff;}
+        
+        /* モード1: オレンジ (記録のみ) */
+        .tab.mode1.active { opacity: 1; background-color: #FF9800; transform: scale(1.1); box-shadow: 0 0 10px #FF9800; color: #fff;}
+        /* モード2: 青 (補正あり) */
+        .tab.mode2.active { opacity: 1; background-color: #2196F3; transform: scale(1.1); box-shadow: 0 0 10px #2196F3; color: #fff;}
 
         /* CSV保存エリア */
         #save-area { margin-top: 20px; display: none; }
@@ -36,7 +40,7 @@
             background: #444; color: white; font-size: 24px;
             border-radius: 10px; user-select: none;
         }
-        .d-btn:active { background: #2196F3; color: #fff; }
+        .d-btn:active { background: #999; color: #fff; }
         .d-btn.disabled { opacity: 0.3; pointer-events: none; }
 
         #btn-up    { top: 0; left: 70px; }
@@ -49,7 +53,7 @@
     </style>
 </head>
 <body>
-    <h1>Hybrid Controller (Blue Tracking)</h1>
+    <h1>Hybrid Controller (Compare Modes)</h1>
     <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
 
@@ -64,8 +68,8 @@
     <hr style="border-color: #444; margin: 20px;">
 
     <div class="mode-tabs">
-        <button id="mode1Btn" class="tab active">Mode 1: 3秒記録</button>
-        <button id="mode2Btn" class="tab">Mode 2: 自動追尾</button>
+        <button id="mode1Btn" class="tab mode1 active">Mode 1: 記録のみ (Open Loop)</button>
+        <button id="mode2Btn" class="tab mode2">Mode 2: 補正あり (Feedback)</button>
     </div>
 
     <div id="save-area">
@@ -88,36 +92,31 @@
         // ==========================================
         // 1. 定数・変数の定義
         // ==========================================
-        const HEADER_MANUAL = 0x01;
-        const HEADER_AUTO   = 0x02;
-        const DIR_STOP = 0, DIR_UP = 1, DIR_DOWN = 2, DIR_LEFT = 4, DIR_RIGHT = 3;
+        const HEADER_MANUAL = 0x01; 
+        const DIR_STOP = 0, DIR_UP = 1, DIR_DOWN = 2, DIR_LEFT = 3, DIR_RIGHT = 4;
         
-        // 通信間引き用設定 (0.2秒間隔)
-        const SEND_INTERVAL = 200; 
+        const SEND_INTERVAL = 150; 
         let lastSendTime = 0;       
         let isSending = false;      
 
-        // システム変数
         let video, canvas, ctx;
         let bleDevice, bleCharacteristic;
         let cv; 
         
-        // 状態変数
         let currentMode = 1; 
         let latestX = 0, latestY = 0;
         let originX = 0, originY = 0;
 
-        // ログ記録用変数
         let recordedData = [];
-        let isRecording = false;
+        let isRecording = false; 
         let recordStartTime = 0;
-        let currentDirectionStr = "";
+        let targetDirection = DIR_STOP; 
+        let activeCommandStr = "STOP"; 
 
         // ==========================================
         // 2. 関数定義
         // ==========================================
 
-        // OpenCVのロード待機
         function waitForOpenCV() {
             if (window.cv && window.cv.Mat) {
                 cv = window.cv;
@@ -127,7 +126,6 @@
             }
         }
 
-        // カメラ起動処理
         async function startCamera() {
             if (!cv) { alert("OpenCVロード中..."); return; }
             try {
@@ -141,7 +139,6 @@
             } catch (err) { alert("カメラエラー: " + err); }
         }
 
-        // Bluetooth接続処理
         async function connectBluetooth() {
             const SERVICE_UUID = '0000aaaa-0000-1000-8000-00805f9b34fb';
             const CHARACTERISTIC_UUID = '0000bbbb-0000-1000-8000-00805f9b34fb';
@@ -156,7 +153,6 @@
             } catch (err) { alert("接続失敗: " + err); }
         }
 
-        // BLEデータ送信 (間引き機能付き)
         async function sendBleData(data) {
             if (!bleCharacteristic || isSending) return;
             if (Date.now() - lastSendTime < SEND_INTERVAL) return;
@@ -168,7 +164,6 @@
             finally { isSending = false; }
         }
 
-        // 手動コマンド即時送信 (間引きなし)
         async function sendManualCommand(code) {
             if (!bleCharacteristic) return;
             try {
@@ -176,39 +171,38 @@
             } catch(e){}
         }
 
-        // 3秒間の移動シーケンス開始
+        // 3秒移動シーケンス (両モード共通)
         function startMoveSequence(dirCode, dirName) {
-            if (currentMode !== 1 || isRecording) return;
+            if (isRecording) return;
             
-            // マーカーが見つかっていない場合は中断
             if (latestX === 0 && latestY === 0) {
                 alert("青色のマーカーが見つかりません！");
                 return;
             }
 
-            // ★重要: 動き出す直前の位置を原点とする
             originX = latestX;
             originY = latestY;
 
             isRecording = true;
             recordStartTime = Date.now();
-            currentDirectionStr = dirName;
+            targetDirection = dirCode;
             
             toggleButtons(false);
-            sendManualCommand(dirCode);
-            document.getElementById('status').textContent = `動作中: ${dirName} (3秒間)`;
+            sendManualCommand(dirCode); // スタート指令
 
-            // 3秒後に停止
+            let modeName = (currentMode === 1) ? "記録のみ" : "補正あり";
+            document.getElementById('status').textContent = `走行中 (${modeName}): ${dirName}`;
+
             setTimeout(() => {
                 sendManualCommand(DIR_STOP);
                 isRecording = false;
+                targetDirection = DIR_STOP;
                 toggleButtons(true);
-                document.getElementById('status').textContent = "待機中 (ボタンを押してください)";
+                document.getElementById('status').textContent = "待機中";
                 updateLogCount();
             }, 3000);
         }
 
-        // UI制御系
         function toggleButtons(enable) {
             const btns = document.querySelectorAll('.d-btn');
             btns.forEach(b => {
@@ -219,26 +213,25 @@
 
         function setMode(mode) {
             currentMode = mode;
-            document.getElementById('mode1Btn').className = mode === 1 ? 'tab active' : 'tab';
-            document.getElementById('mode2Btn').className = mode === 2 ? 'tab active' : 'tab';
+            document.getElementById('mode1Btn').className = (mode === 1) ? 'tab mode1 active' : 'tab mode1';
+            document.getElementById('mode2Btn').className = (mode === 2) ? 'tab mode2 active' : 'tab mode2';
             
             const status = document.getElementById('status');
             const dpad = document.getElementById('dpad-area');
             const saveArea = document.getElementById('save-area');
 
+            // 両方のモードで十字キーと保存ボタンを使う
+            dpad.style.display = "block"; 
+            saveArea.style.display = "block"; 
+
             if (mode === 1) {
-                status.textContent = "モード1: 3秒記録モード";
-                status.style.color = "#2196F3"; // 青文字
-                dpad.style.display = "block"; 
-                saveArea.style.display = "block"; 
-                // 切り替え時にも現在位置を仮の原点にする
-                originX = latestX; originY = latestY;
+                status.textContent = "Mode 1: 制御なし (記録のみ)";
+                status.style.color = "#FF9800"; 
             } else {
-                status.textContent = "モード2: 青色自動追尾中...";
+                status.textContent = "Mode 2: フィードバック制御あり";
                 status.style.color = "#2196F3";
-                dpad.style.display = "none"; 
-                saveArea.style.display = "none";
             }
+            originX = latestX; originY = latestY;
         }
 
         function updateLogCount() {
@@ -250,31 +243,75 @@
             updateLogCount();
         }
 
-        // CSV保存処理
         function saveCSV() {
             if (recordedData.length === 0) {
                 alert("データがありません");
                 return;
             }
-            let csvContent = "Time(ms),Input,RawX,RawY,RelX,RelY\n";
+            let csvContent = "Time(ms),Mode,TargetInput,ActualCommand,RawX,RawY,RelX,RelY\n";
             recordedData.forEach(row => {
-                csvContent += `${row.time},${row.input},${row.x},${row.y},${row.relX},${row.relY}\n`;
+                csvContent += `${row.time},${row.mode},${row.input},${row.act},${row.x},${row.y},${row.relX},${row.relY}\n`;
             });
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `blue_log_${Date.now()}.csv`;
+            a.download = `compare_log_${Date.now()}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
         }
 
-        // メイン画像処理ループ
+        // ==========================================
+        // 3. 制御ロジック
+        // ==========================================
+        function calculateCommand() {
+            // 現在のモードと、記録中かどうかチェック
+            if (!isRecording) return { cmd: DIR_STOP, str: "STOP" };
+
+            // 共通: ズレの計算
+            let errorX = latestX - originX;
+            let errorY = latestY - originY;
+            
+            // --- Mode 1: 制御なし (Open Loop) ---
+            if (currentMode === 1) {
+                // ズレていようが、ひたすら目標方向を返す
+                return { cmd: targetDirection, str: "STRAIGHT(NO_CTRL)" };
+            }
+
+            // --- Mode 2: 制御あり (Feedback) ---
+            if (currentMode === 2) {
+                const DEADZONE = 30; // 許容誤差
+                
+                // UP(前進)中の補正
+                if (targetDirection === DIR_UP) {
+                    if (errorX > DEADZONE) {
+                        return { cmd: DIR_LEFT, str: "CORRECT_LEFT" };
+                    } else if (errorX < -DEADZONE) {
+                        return { cmd: DIR_RIGHT, str: "CORRECT_RIGHT" };
+                    }
+                }
+                // DOWN(後退)中の補正
+                else if (targetDirection === DIR_DOWN) {
+                    if (errorX > DEADZONE) {
+                        return { cmd: DIR_LEFT, str: "CORRECT_LEFT" };
+                    } else if (errorX < -DEADZONE) {
+                        return { cmd: DIR_RIGHT, str: "CORRECT_RIGHT" };
+                    }
+                }
+                // ズレてなければ直進
+                return { cmd: targetDirection, str: "STRAIGHT(CTRL)" };
+            }
+            
+            return { cmd: DIR_STOP, str: "STOP" };
+        }
+
+        // ==========================================
+        // 4. メインループ
+        // ==========================================
         function processVideo() {
             try {
                 if (!cv || video.paused || video.ended) return;
 
-                // 1. 映像取得と描画
                 let vw = video.videoWidth;
                 let vh = video.videoHeight;
                 if (vw > 0 && vh > 0) {
@@ -283,19 +320,17 @@
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 }
 
-                // 2. OpenCV処理
                 let src = cv.matFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
                 let hsv = new cv.Mat();
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
                 let mask = new cv.Mat();
-                // 🔵 青色認識 (H:100-140)
+                // 🔵 青色認識
                 let low = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(100, 60, 20));
                 let high = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), new cv.Scalar(140, 255, 255));
                 cv.inRange(hsv, low, high, mask);
 
-                // 3. 輪郭抽出
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
                 cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
@@ -313,48 +348,59 @@
 
                 if (bestContour) {
                     let rect = cv.boundingRect(bestContour);
-                    // 青枠描画
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [0, 100, 255, 255], 3);
 
-                    // 座標計算 (0-255)
                     let cx = rect.x + rect.width / 2;
                     let cy = rect.y + rect.height / 2;
                     latestX = Math.round((cx / canvas.width) * 255);
                     latestY = Math.round((cy / canvas.height) * 255);
 
-                    // 4. モード別処理
-                    if (currentMode === 1) {
-                        // モード1: ログ記録
-                        let ox = (originX / 255) * canvas.width;
-                        let oy = (originY / 255) * canvas.height;
-                        cv.drawMarker(src, new cv.Point(ox, oy), [255, 255, 0, 255], cv.MARKER_CROSS, 20, 2);
+                    // 原点表示
+                    let ox = (originX / 255) * canvas.width;
+                    let oy = (originY / 255) * canvas.height;
+                    cv.drawMarker(src, new cv.Point(ox, oy), [255, 255, 0, 255], cv.MARKER_CROSS, 20, 2);
+
+                    // 記録＆制御
+                    if (isRecording) {
+                        // 次に送るコマンドを計算 (Mode 1なら直進のみ、Mode 2なら補正あり)
+                        let result = calculateCommand();
+                        activeCommandStr = result.str;
+
+                        // コマンド送信
+                        sendBleData(new Uint8Array([HEADER_MANUAL, result.cmd, 0]));
+
+                        // ログ保存
+                        let currentTime = Date.now() - recordStartTime;
+                        let targetStr = (targetDirection===DIR_UP)?"UP":(targetDirection===DIR_DOWN)?"DOWN":"OTHER";
                         
-                        if (isRecording) {
-                            let currentTime = Date.now() - recordStartTime;
-                            recordedData.push({
-                                time: currentTime,
-                                input: currentDirectionStr,
-                                x: latestX,
-                                y: latestY,
-                                relX: latestX - originX, // 相対座標
-                                relY: latestY - originY
-                            });
-                            cv.circle(src, new cv.Point(30, 30), 10, [0, 100, 255, 255], -1); 
-                            cv.putText(src, "REC", new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [0, 100, 255, 255], 2);
-                        } else {
-                            cv.putText(src, "Mode 1: Log Ready", new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 255, 255, 255], 2);
+                        recordedData.push({
+                            time: currentTime,
+                            mode: currentMode, // どっちのモードの実験データか記録
+                            input: targetStr,
+                            act: activeCommandStr,
+                            x: latestX,
+                            y: latestY,
+                            relX: latestX - originX,
+                            relY: latestY - originY
+                        });
+
+                        // 画面表示
+                        cv.circle(src, new cv.Point(30, 30), 10, [0, 255, 255, 255], -1); 
+                        cv.putText(src, `REC(M${currentMode}): ${activeCommandStr}`, new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.7, [255, 255, 255, 255], 2);
+                        
+                        // 補正ライン(Mode 2のときだけ表示すると親切)
+                        if (currentMode === 2) {
+                            let deadzonePx = (30 / 255) * canvas.width;
+                            cv.line(src, new cv.Point(ox - deadzonePx, 0), new cv.Point(ox - deadzonePx, canvas.height), [100, 100, 100, 255], 1);
+                            cv.line(src, new cv.Point(ox + deadzonePx, 0), new cv.Point(ox + deadzonePx, canvas.height), [100, 100, 100, 255], 1);
                         }
 
-                    } else if (currentMode === 2) {
-                        // モード2: 自動追尾
-                        sendBleData(new Uint8Array([HEADER_AUTO, latestX, latestY]));
-                        let text = `Auto: ${latestX}, ${latestY}`;
-                        cv.putText(src, text, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 1.0, [255, 255, 255, 255], 2);
+                    } else {
+                        cv.putText(src, `Ready (Mode ${currentMode})`, new cv.Point(10, 40), cv.FONT_HERSHEY_SIMPLEX, 0.8, [255, 255, 255, 255], 2);
                     }
                 }
 
                 cv.imshow('canvas', src);
-                // メモリ解放
                 src.delete(); hsv.delete(); mask.delete(); low.delete(); high.delete(); contours.delete(); hierarchy.delete();
 
             } catch (err) { console.error(err); } 
@@ -362,14 +408,13 @@
         }
 
         // ==========================================
-        // 3. 初期化処理
+        // 5. 初期化
         // ==========================================
         window.onload = () => {
             video = document.getElementById('webcam');
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d', { willReadFrequently: true });
             
-            // イベントリスナ設定
             document.getElementById('startButton').onclick = startCamera;
             document.getElementById('connectButton').onclick = connectBluetooth;
             document.getElementById('mode1Btn').onclick = () => setMode(1);
@@ -377,7 +422,7 @@
             document.getElementById('saveBtn').onclick = saveCSV;
             document.getElementById('clearBtn').onclick = clearLog;
 
-            // 十字キー設定
+            // 十字キー
             document.getElementById('btn-up').onclick    = () => startMoveSequence(DIR_UP, "UP");
             document.getElementById('btn-down').onclick  = () => startMoveSequence(DIR_DOWN, "DOWN");
             document.getElementById('btn-left').onclick  = () => startMoveSequence(DIR_LEFT, "LEFT");

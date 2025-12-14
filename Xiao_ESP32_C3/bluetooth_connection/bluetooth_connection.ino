@@ -18,8 +18,8 @@ int manualId = 0;           // 手動実行中のパターンID (0=停止, 1~4=�
 // --- パラメータ変数 ---
 int paramRes1 = 13;
 int paramRep1 = 3;
-int paramRes2 = 14;
-int paramRep2 = 1;
+int paramRes2 = 7;
+int paramRep2 = 3;
 int loopCount = 200;
 
 // すべてのGPIOピンをLowに
