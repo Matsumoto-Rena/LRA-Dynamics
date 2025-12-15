@@ -1,119 +1,173 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import glob
+import os
 import numpy as np
+from matplotlib.lines import Line2D
 import math
 
-# ---------------------------------------------------------
-# 1. データの読み込み
-# ---------------------------------------------------------
-# ★ここに保存したCSVファイル名を指定してください
-csv_file = 'felt_right.csv' 
+# ==========================================
+# ★設定エリア
+# ==========================================
+TARGET_FOLDER = "DOWN2"  # 解析したいフォルダ名
 
-# データを読み込む
-try:
-    df = pd.read_csv(csv_file)
-except FileNotFoundError:
-    print(f"エラー: '{csv_file}' が見つかりません。ファイル名をアップロードして確認してください。")
-    # テスト用ダミーデータ（ファイルがない場合用）
-    from io import StringIO
-    csv_content = """Time(ms),Input,RawX,RawY,RelX,RelY
-    0,UP,100,100,0,0
-    100,UP,100,95,0,-5
-    200,UP,102,90,2,-10
-    300,UP,105,80,5,-20
-    400,UP,108,70,8,-30
-    """
-    df = pd.read_csv(StringIO(csv_content))
+# グラフの線種設定 (カラー + 線種)
+STYLES = [
+    ('red',         '-',       'Run 1'),
+    ('blue',        '--',      'Run 2'),
+    ('green',       '-.',      'Run 3'),
+    ('orange',      ':',       'Run 4'),
+    ('purple',      (0, (3, 1, 1, 1)), 'Run 5'),
+]
 
-# ---------------------------------------------------------
-# 2. データの解析（距離と速度）
-# ---------------------------------------------------------
-# 相対座標（原点からの移動量）を使用
-x = df['RelX'].values
-y = df['RelY'].values
-time = df['Time(ms)'].values
-input_cmd = df['Input'].iloc[0] # 入力方向 (UP, DOWN, LEFT, RIGHT)
+# ==========================================
+# 関数定義
+# ==========================================
+def calculate_stats(df):
+    """データフレームから移動統計量を計算する"""
+    # 1. 経過時間 (秒)
+    time_sec = (df['Time(ms)'].iloc[-1] - df['Time(ms)'].iloc[0]) / 1000.0
+    
+    # 2. 総移動距離 (px) - 各点間の距離の合計
+    # dx, dy を計算
+    df['dx'] = df['RelX'].diff().fillna(0)
+    df['dy'] = df['RelY'].diff().fillna(0)
+    # 距離 = sqrt(dx^2 + dy^2)
+    df['dist'] = np.sqrt(df['dx']**2 + df['dy']**2)
+    total_distance = df['dist'].sum()
+    
+    # 3. 平均速度 (px/sec)
+    avg_speed = total_distance / time_sec if time_sec > 0 else 0
+    
+    # 4. 最終地点 (RelX, RelY)
+    last_x = df['RelX'].iloc[-1]
+    last_y = df['RelY'].iloc[-1]
+    
+    # 5. 角度のズレ (度)
+    # スタート(0,0)からゴール(last_x, last_y)への角度
+    # 画像座標系(Yが下プラス)でのatan2: 右=0度, 下=90度, 左=180度, 上=-90度
+    angle_rad = math.atan2(last_y, last_x)
+    angle_deg = math.degrees(angle_rad)
+    
+    # ターゲット方向の自動推定 (絶対値が大きい方が進行方向とみなす)
+    # 0:Right, 90:Down, 180:Left, -90:Up
+    target_deg = 0
+    if abs(last_x) >= abs(last_y):
+        # 横移動
+        target_deg = 0 if last_x > 0 else 180
+    else:
+        # 縦移動
+        target_deg = 90 if last_y > 0 else -90
+        
+    # ズレを計算 (-180 ~ 180 の範囲に正規化)
+    deviation = angle_deg - target_deg
+    # 補正 (例: ターゲット180で実際-170の場合、差は-350ではなく+10にしたい)
+    while deviation > 180:  deviation -= 360
+    while deviation < -180: deviation += 360
+    
+    return {
+        'Time(sec)': round(time_sec, 2),
+        'Distance(px)': round(total_distance, 1),
+        'Speed(px/s)': round(avg_speed, 2),
+        'FinalX': round(last_x, 1),
+        'FinalY': round(last_y, 1),
+        'AngleDev(deg)': round(deviation, 2),
+        'TargetDir': target_deg # 参考用
+    }
 
-# --- A. 軌跡の長さ (総移動距離) ---
-# 各ポイント間の距離を計算して合計する
-dx = np.diff(x)
-dy = np.diff(y)
-distances = np.sqrt(dx**2 + dy**2)
-total_distance = np.sum(distances)
+def main():
+    if not os.path.exists(TARGET_FOLDER):
+        print(f"エラー: フォルダ '{TARGET_FOLDER}' が見つかりません。")
+        return
 
-# --- B. 移動速度 ---
-# 総時間 (秒)
-total_time_sec = (time[-1] - time[0]) / 1000.0
+    csv_files = sorted(glob.glob(os.path.join(TARGET_FOLDER, "*.csv")))
+    if len(csv_files) == 0:
+        print("エラー: CSVファイルがありません。")
+        return
 
-# 平均速度 (ピクセル/秒)
-if total_time_sec > 0:
-    average_speed = total_distance / total_time_sec
-else:
-    average_speed = 0
+    print(f"--- {TARGET_FOLDER} 解析開始 ({len(csv_files)} runs) ---")
 
-# --- C. 意図した方向とのズレ (角度) ---
-# 最終地点の座標
-last_x = x[-1]
-last_y = y[-1]
+    # グラフ準備
+    plt.figure(figsize=(10, 8))
+    
+    # 解析結果を保存するリスト
+    stats_list = []
 
-# 実際の移動角度 (ラジアン -> 度)
-# atan2は(y, x)の順で引数を取る。画面座標系(Y下向き)に注意
-actual_angle_rad = math.atan2(last_y, last_x)
-actual_angle_deg = math.degrees(actual_angle_rad)
+    for i, file_path in enumerate(csv_files):
+        if i >= len(STYLES): break
+        
+        try:
+            df = pd.read_csv(file_path)
+            if len(df) < 2: continue
+        except Exception as e:
+            print(f"Skip: {file_path} ({e})")
+            continue
 
-# 理想の角度
-ideal_angle_deg = 0
-if input_cmd == "RIGHT": ideal_angle_deg = 0
-elif input_cmd == "DOWN": ideal_angle_deg = 90
-elif input_cmd == "LEFT": ideal_angle_deg = 180
-elif input_cmd == "UP": ideal_angle_deg = -90
+        color, linestyle, label = STYLES[i]
+        
+        # 統計計算
+        stats = calculate_stats(df)
+        stats['Run'] = label # Run名を追加
+        stats['File'] = os.path.basename(file_path) # ファイル名も追加
+        stats_list.append(stats)
 
-# ズレの計算
-deviation = actual_angle_deg - ideal_angle_deg
-# -180~180の範囲に正規化
-while deviation > 180: deviation -= 360
-while deviation < -180: deviation += 360
+        # 描画
+        x, y = df['RelX'], df['RelY']
+        plt.plot(x, y, label=label, color=color, linestyle=linestyle, linewidth=2, alpha=0.8)
+        plt.scatter(x.iloc[0], y.iloc[0], marker='o', s=120, facecolors='white', edgecolors=color, linewidth=2, zorder=5)
+        plt.scatter(x.iloc[-1], y.iloc[-1], marker='D', s=120, color=color, zorder=5)
+        
+        # コンソールに詳細を表示（ユーザー好みの形式）
+        print(f"\n====== 解析結果 ({label}) ======")
+        print(f"ファイル名: {stats['File']}")
+        print(f"総移動距離: {stats['Distance(px)']} px")
+        print(f"経過時間  : {stats['Time(sec)']} sec")
+        print(f"平均速度  : {stats['Speed(px/s)']} px/sec")
+        print(f"最終地点  : ({stats['FinalX']}, {stats['FinalY']})")
+        print(f"角度ズレ  : {stats['AngleDev(deg)']} 度 (推定ターゲット: {stats['TargetDir']}度)")
 
-print(f"====== 解析結果 ({input_cmd}) ======")
-print(f"総移動距離: {total_distance:.2f} px")
-print(f"経過時間: {total_time_sec:.2f} sec")
-print(f"平均速度: {average_speed:.2f} px/sec")
-print(f"最終地点: ({last_x}, {last_y})")
-print(f"角度のズレ: {deviation:.2f} 度 (プラスなら時計回り寄り)")
+    # --- グラフの仕上げ ---
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', markeredgecolor='black', label='Start', markersize=10),
+        Line2D([0], [0], marker='D', color='black', label='End', markersize=10),
+    ]
+    for j in range(len(stats_list)):
+        c, ls, lbl = STYLES[j]
+        legend_elements.append(Line2D([0], [0], color=c, linestyle=ls, label=lbl))
 
-# ---------------------------------------------------------
-# 3. グラフ描画（軌跡とズレの可視化）
-# ---------------------------------------------------------
-plt.figure(figsize=(8, 8))
+    plt.title(f'Robot Trajectories: {TARGET_FOLDER}', fontsize=16)
+    plt.xlabel('X Position (px)', fontsize=14)
+    plt.ylabel('Y Position (px)', fontsize=14)
+    plt.axhline(0, color='gray', linewidth=0.5)
+    plt.axvline(0, color='gray', linewidth=0.5)
+    plt.grid(True, linestyle=':', alpha=0.6)
+    plt.axis('equal')
+    # 画像座標系(Y下向き)に合わせるならコメントアウトを外す
+    plt.gca().invert_yaxis() 
+    plt.legend(handles=legend_elements, fontsize=12, loc='best')
+    plt.tight_layout()
+    
+    # 画像保存
+    img_name = f"{TARGET_FOLDER}.png"
+    plt.savefig(img_name, dpi=300)
+    print(f"\n[画像保存] {img_name}")
+    
+    # --- 表（DataFrame）の作成と保存 ---
+    if stats_list:
+        # 表にしたいカラムの順番を整理
+        cols = ['Run', 'Time(sec)', 'Distance(px)', 'Speed(px/s)', 'FinalX', 'FinalY', 'AngleDev(deg)', 'File']
+        summary_df = pd.DataFrame(stats_list)[cols]
+        
+        # コンソールに表を表示
+        print("\n====== サマリーテーブル ======")
+        print(summary_df.to_string(index=False))
+        
+        # CSVとして保存
+        csv_name = f"{TARGET_FOLDER}_summary.csv"
+        summary_df.to_csv(csv_name, index=False)
+        print(f"[CSV保存] {csv_name}")
 
-# カメラ座標系に合わせるためY軸を反転（上がマイナス、下がプラス）
-plt.gca().invert_yaxis()
+    plt.show()
 
-# --- 1. 実際の軌跡 (青線) ---
-plt.plot(x, y, marker='o', markersize=4, label='Actual Path', color='blue', alpha=0.7)
-plt.scatter(0, 0, color='green', s=150, label='Start (0,0)', zorder=5) # スタート
-plt.scatter(x[-1], y[-1], color='red', s=150, label='End', zorder=5)   # ゴール
-
-# --- 2. 意図した方向 (オレンジ点線) ---
-# グラフを見やすくするために、実際の移動距離と同じくらいの長さで線を引く
-scale = max(abs(last_x), abs(last_y), 50) 
-
-target_x, target_y = 0, 0
-if input_cmd == "UP": target_x, target_y = 0, -scale
-elif input_cmd == "DOWN": target_x, target_y = 0, scale
-elif input_cmd == "LEFT": target_x, target_y = -scale, 0
-elif input_cmd == "RIGHT": target_x, target_y = scale, 0
-
-plt.plot([0, target_x], [0, target_y], linestyle='--', color='orange', linewidth=2, label=f'Intended ({input_cmd})')
-
-# --- 3. グラフの装飾 ---
-plt.title(f"Trajectory Analysis: {input_cmd}\n(Speed: {average_speed:.1f} px/s, Dev: {deviation:.1f} deg)")
-plt.xlabel("Relative X (px)")
-plt.ylabel("Relative Y (px)")
-plt.axhline(0, color='black', linewidth=0.5)
-plt.axvline(0, color='black', linewidth=0.5)
-plt.grid(True, linestyle=':', alpha=0.6)
-plt.legend()
-plt.axis('equal') # 縦横の比率を揃える（歪み防止）
-
-plt.show()
+if __name__ == "__main__":
+    main()

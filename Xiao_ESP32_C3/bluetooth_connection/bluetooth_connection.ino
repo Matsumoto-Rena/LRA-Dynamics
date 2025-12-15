@@ -125,8 +125,8 @@ void runPatternStep(int id) {
   switch(id) {
     case 1: digitalWrite(D6, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, true);  break;
     case 2: digitalWrite(D8, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, false); break;
-    case 3: digitalWrite(D7, HIGH);  move(paramRes2, paramRep2, true);  break;
-    case 4: digitalWrite(D10, HIGH); move(paramRes2, paramRep2, false); break;
+    case 3: digitalWrite(D7, HIGH);  move(paramRes2, paramRep2, false);  break;
+    case 4: digitalWrite(D10, HIGH); move(paramRes2, paramRep2, true); break;
   }
 }
 
