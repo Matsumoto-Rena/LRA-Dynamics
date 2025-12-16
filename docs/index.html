@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller (Local Coordinates)</title>
+    <title>Hybrid Controller (Precision Rec)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         canvas { border: 4px solid #2196F3; background-color: #000; width: 100%; max-width: 640px; height: auto; border-radius: 8px; }
@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h1>Hybrid Controller (Local Coord)</h1>
+    <h1>Hybrid Controller (Precision Rec)</h1>
     <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
     <canvas id="canvas"></canvas>
@@ -55,8 +55,10 @@
     </div>
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
     <script>
+        // 青色 (後ろ)
         const COLOR_BLUE_MIN = [100, 60, 20, 0];
         const COLOR_BLUE_MAX = [140, 255, 255, 255];
+        // 赤色 (前)
         const COLOR_RED1_MIN = [0, 100, 50, 0];
         const COLOR_RED1_MAX = [10, 255, 255, 255];
         const COLOR_RED2_MIN = [170, 100, 50, 0];
@@ -71,9 +73,13 @@
         let currentAngle = 0;     
 
         let originX = 0, originY = 0;
-        let originAngle = 0; // ★初期角度
+        let originAngle = 0;
         
-        let recordedData = []; let isRecording = false; let recordStartTime = 0;
+        let recordedData = []; 
+        let isRecording = false; 
+        let recordStartTime = 0;
+        let isFirstFrame = false; // ★追加: 最初のフレームかどうかのフラグ
+        
         let lastSentCmd = -1; let isBusy = false;
         let activeCommandStr = "STOP"; let targetDirection = DIR_STOP;
 
@@ -119,14 +125,12 @@
         function startMoveSequence(dirCode, dirName) {
             if (isRecording) return;
             if (blueX === 0 && blueY === 0) { alert("青色マーカーが見つかりません！"); return; }
-            if (redX === 0 && redY === 0) { alert("赤色マーカーが見つかりません！\n方向が分かりません。"); return; }
+            if (redX === 0 && redY === 0) { alert("赤色マーカーが見つかりません！"); return; }
             
-            originX = blueX; originY = blueY; 
-            originAngle = currentAngle; // ★スタート時の向きを基準にする
-            
-            targetDirection = dirCode;
+            // ★ここではフラグを立てるだけ。実際の原点設定は processVideo で行う
+            isFirstFrame = true; 
             isRecording = true;
-            recordStartTime = Date.now();
+            targetDirection = dirCode;
             toggleButtons(false);
             
             lastSentCmd = -1; 
@@ -135,6 +139,7 @@
             let modeName = (currentMode === 1) ? "記録のみ" : "補正あり";
             document.getElementById('status').textContent = `走行中 (${modeName}): ${dirName}`;
 
+            // ★4秒 (4000ms) に延長！ 解析側で3秒にトリミングする
             setTimeout(async () => {
                 await updateRobotCommand(DIR_STOP, "STOP", true);
                 isRecording = false;
@@ -142,7 +147,7 @@
                 toggleButtons(true);
                 document.getElementById('status').textContent = "完了";
                 updateLogCount();
-            }, 3000); 
+            }, 4000); 
         }
 
         function toggleButtons(enable) {
@@ -157,14 +162,12 @@
             document.getElementById('save-area').style.display = "block"; 
             if (mode === 1) document.getElementById('status').textContent = "Mode 1: 制御なし (記録のみ)";
             else document.getElementById('status').textContent = "Mode 2: フィードバック制御あり";
-            originX = blueX; originY = blueY;
         }
         function updateLogCount() { document.getElementById('log-count').textContent = `データ数: ${recordedData.length}行`; }
         function clearLog() { recordedData = []; updateLogCount(); }
         
         function saveCSV() {
             if (recordedData.length === 0) return;
-            // ★CSVヘッダに LocalX, LocalY を追加
             let csv = "Time(ms),Mode,TargetInput,ActualCommand,BlueX,BlueY,RelX,RelY,LocalX,LocalY,Angle(deg)\n";
             recordedData.forEach(r => { 
                 csv += `${r.time},${r.mode},${r.input},${r.act},${r.x},${r.y},${r.relX},${r.relY},${r.locX},${r.locY},${r.angle}\n`; 
@@ -203,6 +206,7 @@
                 let src = cv.matFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
                 let hsv = new cv.Mat(); cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
                 
+                // 青(後ろ)
                 let blueRect = findColorContour(hsv, COLOR_BLUE_MIN, COLOR_BLUE_MAX);
                 if (blueRect) {
                     cv.rectangle(src, new cv.Point(blueRect.x, blueRect.y), new cv.Point(blueRect.x + blueRect.width, blueRect.y + blueRect.height), [255, 0, 0, 255], 2);
@@ -210,6 +214,7 @@
                     blueY = Math.round(blueRect.y + blueRect.height/2);
                 } else { blueX = 0; blueY = 0; }
 
+                // 赤(前)
                 let redRect1 = findColorContour(hsv, COLOR_RED1_MIN, COLOR_RED1_MAX);
                 let redRect2 = findColorContour(hsv, COLOR_RED2_MIN, COLOR_RED2_MAX);
                 let redRect = null;
@@ -225,6 +230,7 @@
                     redY = Math.round(redRect.y + redRect.height/2);
                 } else { redX = 0; redY = 0; }
 
+                // 角度計算
                 if (blueX !== 0 && redX !== 0) {
                     let dx = redX - blueX;
                     let dy = redY - blueY; 
@@ -235,53 +241,65 @@
                     cv.putText(src, `${Math.round(currentAngle)}deg`, new cv.Point(redX + 10, redY), cv.FONT_HERSHEY_SIMPLEX, 0.6, [0, 255, 255, 255], 2);
                 } 
 
-                let ox = (originX / 255) * canvas.width; let oy = (originY / 255) * canvas.height;
-                if(originX !== 0) cv.drawMarker(src, new cv.Point(originX, originY), [255, 255, 0, 255], cv.MARKER_CROSS, 20, 2);
-
                 if (isRecording) {
-                    let timeElapsed = Date.now() - recordStartTime;
-                    
-                    if (currentMode === 2 && blueX !== 0) {
-                        const DEADZONE = 30;
-                        let errorX = blueX - originX;
-                        if (targetDirection === DIR_UP) {
-                            if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
-                            else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
-                            else updateRobotCommand(DIR_UP, "STRAIGHT(CTRL)");
-                        } else if (targetDirection === DIR_DOWN) {
-                            if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
-                            else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
-                            else updateRobotCommand(DIR_DOWN, "STRAIGHT(CTRL)");
-                        }
-                    } 
-                    
-                    // ★ローカル座標計算 (Local Coordinate Transformation)
-                    let dx = blueX - originX;
-                    let dy = blueY - originY;
-                    let theta = originAngle * (Math.PI / 180.0); // ラジアン変換
-                    
-                    // 進行方向(Forward)をLocalY、右方向(Right)をLocalXとするための計算
-                    // Forward Unit Vector: (cos(theta), sin(theta))
-                    // Right Unit Vector:   (-sin(theta), cos(theta))  <- 画面座標系(Y下)での90度回転
-                    let localY = dx * Math.cos(theta) + dy * Math.sin(theta); // 進行方向成分
-                    let localX = dx * (-Math.sin(theta)) + dy * Math.cos(theta); // 横方向成分
+                    // ★重要: 録画の最初の1フレーム目で原点を確定する (これで (0,0) スタートが保証される)
+                    if (isFirstFrame && blueX !== 0 && redX !== 0) {
+                        originX = blueX;
+                        originY = blueY;
+                        originAngle = currentAngle;
+                        recordStartTime = Date.now(); // 時間もここからカウント
+                        isFirstFrame = false;
+                    }
 
-                    recordedData.push({ 
-                        time: timeElapsed, 
-                        mode: currentMode, 
-                        input: "AUTO", 
-                        act: activeCommandStr, 
-                        x: blueX, 
-                        y: blueY, 
-                        relX: dx, 
-                        relY: dy,
-                        locX: Math.round(localX * 10) / 10, // ローカル横
-                        locY: Math.round(localY * 10) / 10, // ローカル前
-                        angle: Math.round(currentAngle * 10) / 10
-                    });
+                    if (!isFirstFrame && blueX !== 0) {
+                        let timeElapsed = Date.now() - recordStartTime;
+                        
+                        // フィードバック制御
+                        if (currentMode === 2) {
+                            const DEADZONE = 30;
+                            let errorX = blueX - originX;
+                            if (targetDirection === DIR_UP) {
+                                if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
+                                else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
+                                else updateRobotCommand(DIR_UP, "STRAIGHT(CTRL)");
+                            } else if (targetDirection === DIR_DOWN) {
+                                if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
+                                else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
+                                else updateRobotCommand(DIR_DOWN, "STRAIGHT(CTRL)");
+                            }
+                        } 
+                        
+                        // ローカル座標計算
+                        let dx = blueX - originX;
+                        let dy = blueY - originY;
+                        let theta = originAngle * (Math.PI / 180.0);
+                        let localY = dx * Math.cos(theta) + dy * Math.sin(theta); 
+                        let localX = dx * (-Math.sin(theta)) + dy * Math.cos(theta);
+
+                        recordedData.push({ 
+                            time: timeElapsed, 
+                            mode: currentMode, 
+                            input: "AUTO", 
+                            act: activeCommandStr, 
+                            x: blueX, 
+                            y: blueY, 
+                            relX: dx, 
+                            relY: dy,
+                            locX: Math.round(localX * 10) / 10, 
+                            locY: Math.round(localY * 10) / 10, 
+                            angle: Math.round(currentAngle * 10) / 10
+                        });
+                    }
 
                     cv.circle(src, new cv.Point(30, 30), 10, [0, 255, 255, 255], -1);
                     cv.putText(src, `REC`, new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.7, [255, 255, 255, 255], 2);
+                }
+
+                // マーカー描画（原点）
+                if(originX !== 0) {
+                     let ox = (originX / 255) * canvas.width; // 座標変換が必要なら注意
+                     // 今回は640x480canvas固定なのでそのまま描画
+                     cv.drawMarker(src, new cv.Point(originX, originY), [255, 255, 0, 255], cv.MARKER_CROSS, 20, 2);
                 }
 
                 cv.imshow('canvas', src); 
