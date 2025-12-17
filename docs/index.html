@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller (Big/Small Blue)</title>
+    <title>Hybrid Controller (High Speed)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         canvas { border: 4px solid #2196F3; background-color: #000; width: 100%; max-width: 640px; height: auto; border-radius: 8px; }
@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h1>Hybrid Controller (Big/Small Blue)</h1>
+    <h1>Hybrid Controller (High Speed)</h1>
     <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
     <canvas id="canvas"></canvas>
@@ -55,7 +55,7 @@
     </div>
     <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
     <script>
-        // 色設定 (青のみ使用)
+        // 青色設定
         const COLOR_BLUE_MIN = [100, 60, 20, 0];
         const COLOR_BLUE_MAX = [140, 255, 255, 255];
 
@@ -65,9 +65,6 @@
         let video, canvas, ctx, bleDevice, bleCharacteristic, cv; 
         let currentMode = 1; 
         
-        // ★座標変数変更
-        // backX/Y = 大きい青丸 (後ろ・原点)
-        // frontX/Y = 小さい青丸 (前・向き)
         let backX = 0, backY = 0; 
         let frontX = 0, frontY = 0;   
         let currentAngle = 0;     
@@ -83,8 +80,7 @@
         let lastSentCmd = -1; let isBusy = false;
         let activeCommandStr = "STOP"; let targetDirection = DIR_STOP;
         
-        let lastBleSendTime = 0;
-        const BLE_INTERVAL = 150; 
+        // ★タイマー制限は撤廃しました
 
         function waitForOpenCV() {
             if (window.cv && window.cv.Mat) { cv = window.cv; document.getElementById('loading').textContent = "OpenCV.js 準備完了！"; } 
@@ -110,17 +106,17 @@
 
         async function updateRobotCommand(cmd, strLabel, forceBurst = false) {
             activeCommandStr = strLabel;
-            if (!forceBurst && cmd !== DIR_STOP) {
-                if (Date.now() - lastBleSendTime < BLE_INTERVAL) return;
-                if (cmd === lastSentCmd) return;
-            }
+            
+            // ★時間制限のチェックを削除しました
+            // 前と同じコマンドなら送らない (スパム防止)
+            if (!forceBurst && cmd === lastSentCmd) return;
+
             if (isBusy) return;
             isBusy = true; 
             try { 
                 if (forceBurst || cmd === DIR_STOP) await sendBurst(cmd); 
                 else await sendSingle(cmd);
                 lastSentCmd = cmd;
-                lastBleSendTime = Date.now(); 
             } 
             catch (err) { console.error(err); lastSentCmd = -1; } 
             finally { isBusy = false; }
@@ -130,15 +126,14 @@
             if (!bleCharacteristic) return;
             for (let i = 0; i < 5; i++) {
                 try { await bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, cmd, 0])); } catch(e){} 
-                await new Promise(r => setTimeout(r, 30));
+                await new Promise(r => setTimeout(r, 20)); // 間隔を少し詰めて高速化
             }
         }
 
         function startMoveSequence(dirCode, dirName) {
             if (isRecording) return;
-            // チェック: 大小2つのマーカーが見えているか？
             if (backX === 0 || frontX === 0) { 
-                alert("2つの青色マーカーが見つかりません！\n(大きい青=後ろ, 小さい青=前)"); 
+                alert("2つの青色マーカーが見つかりません！"); 
                 return; 
             }
             
@@ -156,7 +151,8 @@
             setTimeout(async () => {
                 console.log("STOPPING...");
                 isRecording = false; 
-                await new Promise(r => setTimeout(r, 50));
+                // 少し待ってから停止
+                await new Promise(r => setTimeout(r, 20));
                 await updateRobotCommand(DIR_STOP, "STOP", true);
                 targetDirection = DIR_STOP;
                 toggleButtons(true);
@@ -183,7 +179,6 @@
         
         function saveCSV() {
             if (recordedData.length === 0) return;
-            // ヘッダは以前と同じ互換性を保つため BlueX -> BackX, etc. と解釈してください
             let csv = "Time(ms),Mode,TargetInput,ActualCommand,BackX,BackY,RelX,RelY,LocalX,LocalY,Angle(deg)\n";
             recordedData.forEach(r => { 
                 csv += `${r.time},${r.mode},${r.input},${r.act},${r.x},${r.y},${r.relX},${r.relY},${r.locX},${r.locY},${r.angle}\n`; 
@@ -192,7 +187,6 @@
             const a = document.createElement('a'); a.href = url; a.download = `log_${Date.now()}.csv`; a.click();
         }
 
-        // ★新機能: 青色輪郭をすべて見つけて、面積順にソートして返す
         function findBlueContours(hsvMat, minColor, maxColor) {
             let mask = new cv.Mat();
             let low = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(...minColor));
@@ -207,14 +201,12 @@
             let foundRects = [];
             for (let i = 0; i < contours.size(); ++i) {
                 let area = cv.contourArea(contours.get(i), false);
-                if (area > 20) { // ノイズ除去 (小さすぎるものは無視)
+                if (area > 20) {
                     let rect = cv.boundingRect(contours.get(i));
                     foundRects.push({ area: area, rect: rect });
                 }
             }
-            // 面積が大きい順にソート
             foundRects.sort((a, b) => b.area - a.area);
-
             mask.delete(); contours.delete(); hierarchy.delete();
             return foundRects;
         }
@@ -232,48 +224,35 @@
                 let src = cv.matFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
                 let hsv = new cv.Mat(); cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
                 
-                // --- ★青色の塊をすべて探す ---
                 let blueBlobs = findBlueContours(hsv, COLOR_BLUE_MIN, COLOR_BLUE_MAX);
                 
-                // リセット
                 backX = 0; backY = 0;
                 frontX = 0; frontY = 0;
 
                 if (blueBlobs.length >= 1) {
-                    // 1番大きいやつ = Back (後ろ) = 大きい青丸
                     let big = blueBlobs[0].rect;
                     backX = Math.round(big.x + big.width/2);
                     backY = Math.round(big.y + big.height/2);
-                    
-                    // 青枠で表示
                     cv.rectangle(src, new cv.Point(big.x, big.y), new cv.Point(big.x + big.width, big.y + big.height), [255, 0, 0, 255], 2);
-                    cv.putText(src, "Back(Big)", new cv.Point(big.x, big.y - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, [255, 0, 0, 255], 1);
                 }
 
                 if (blueBlobs.length >= 2) {
-                    // 2番目に大きいやつ = Front (前) = 小さい青丸
                     let small = blueBlobs[1].rect;
                     frontX = Math.round(small.x + small.width/2);
                     frontY = Math.round(small.y + small.height/2);
-
-                    // 黄色枠で表示
                     cv.rectangle(src, new cv.Point(small.x, small.y), new cv.Point(small.x + small.width, small.y + small.height), [0, 255, 255, 255], 2);
-                    cv.putText(src, "Front(Small)", new cv.Point(small.x, small.y - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, [0, 255, 255, 255], 1);
                 }
 
-                // --- 角度計算 (Back -> Front) ---
                 if (backX !== 0 && frontX !== 0) {
                     let dx = frontX - backX;
                     let dy = frontY - backY; 
                     let rad = Math.atan2(dy, dx);
                     currentAngle = rad * (180 / Math.PI);
                     
-                    // 黄色い線で結ぶ
                     cv.line(src, new cv.Point(backX, backY), new cv.Point(frontX, frontY), [0, 255, 255, 255], 3);
                     cv.putText(src, `${Math.round(currentAngle)}deg`, new cv.Point(frontX + 10, frontY), cv.FONT_HERSHEY_SIMPLEX, 0.6, [0, 255, 255, 255], 2);
                 } 
 
-                // --- 記録 & 制御ロジック (Back座標を基準にする) ---
                 if (isRecording) {
                     if (isFirstFrame && backX !== 0 && frontX !== 0) {
                         originX = backX;
@@ -288,7 +267,7 @@
                         
                         if (currentMode === 2) {
                             const DEADZONE = 30;
-                            let errorX = backX - originX; // 大きい丸のズレを見る
+                            let errorX = backX - originX;
                             if (targetDirection === DIR_UP) {
                                 if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
                                 else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
