@@ -2,8 +2,8 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-const char* ssid = "" your wifi ssid
-const char* password = "" your wifi password 
+const char* ssid = "(･∀･)";
+const char* password = "235711131719"; 
 
 Adafruit_MCP4725 dac1;
 WebServer server(80);
