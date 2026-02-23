@@ -124,7 +124,7 @@
         <button id="clearBtn" class="btn-clear">🗑️ クリア</button>
     </div>
 
-    <script async src="https://cdnjs.cloudflare.com/ajax/libs/opencv.js/4.8.0/opencv.js" onload="onOpenCvReady()"></script>
+    <script async src="https://cdnjs.cloudflare.com/ajax/libs/opencv.js/4.8.0/opencv.js"></script>
 
     <script>
         const HEADER_MANUAL = 0x01, HEADER_AUTO = 0x02, HEADER_PARAM = 0x03, HEADER_MANUAL2 = 0x04, DIR_STOP = 0;
@@ -149,7 +149,14 @@
         const COLOR_FRONT_LOW2 = [165, 120, 70]; // 赤色 (後半: ピンク寄り)
         const COLOR_FRONT_HIGH2 = [180, 255, 255];
 
-        function onOpenCvReady() { cvReady = true; document.getElementById('loading').style.display = 'none'; }
+        function waitForOpenCV() {
+            if (window.cv && window.cv.Mat) {
+                cvReady = true; 
+                document.getElementById('loading').style.display = 'none';
+            } else {
+                setTimeout(waitForOpenCV, 500);
+            }
+        }
 
         window.onload = () => {
             videoElement = document.getElementById('videoElement');
@@ -172,7 +179,8 @@
             document.getElementById('clearBtn').onclick = () => { recordedData=[]; updateLogCount(); };
 
             setupDpad();
-            setMode(3); 
+            setMode(3);
+            waitForOpenCV(); 
             requestAnimationFrame(processLoop);
         };
 
