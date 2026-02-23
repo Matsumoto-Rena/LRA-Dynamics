@@ -180,9 +180,13 @@
             document.getElementById('saveBtn').onclick = saveCSV;
             document.getElementById('clearBtn').onclick = () => { recordedData=[]; updateLogCount(); };
 
-            setupDpad();
-            setMode(3);
             waitForOpenCV(); 
+            setMode(3);
+            try {
+                setupDpad(); // 万が一ここでエラーが起きても止まらないようにtry-catchで囲む
+            } catch (e) {
+                console.log("D-padの設定をスキップしました", e);
+            }
             requestAnimationFrame(processLoop);
         };
 
