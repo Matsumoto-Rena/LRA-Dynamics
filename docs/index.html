@@ -68,7 +68,7 @@
     <div id="resolution-display">Resolution: - x -</div>
 
     <canvas id="canvas"></canvas>
-    <video id="videoElement" playsinline controls style="display:none;"></video>
+    <video id="videoElement" autoplay playsinline muted style="display:none;"></video>
 
     <div>
         <button id="connectButton" class="btn-sys" style="background-color: #007bff;">① Bluetooth 接続</button>
@@ -124,7 +124,7 @@
         <button id="clearBtn" class="btn-clear">🗑️ クリア</button>
     </div>
 
-    <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady()"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.8.0/dist/opencv.js" onload="onOpenCvReady()"></script>
 
     <script>
         const HEADER_MANUAL = 0x01, HEADER_AUTO = 0x02, HEADER_PARAM = 0x03, HEADER_MANUAL2 = 0x04, DIR_STOP = 0;
@@ -177,16 +177,27 @@
         };
 
         async function startWebcam() {
-            if (!cvReady) return;
+            if (!cvReady) {
+                alert("OpenCVのロードが終わっていません。画面上の「ロード中...」が消えてからもう一度押してください！");
+                return;
+            }
             try {
                 isVideoFileMode = false;
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
                 videoElement.srcObject = stream;
+                
+                // スマホやPCのブラウザ対策としてJavaScriptからも念押しで属性を付与
+                videoElement.setAttribute('autoplay', '');
+                videoElement.setAttribute('muted', '');
+                videoElement.setAttribute('playsinline', '');
+                
                 videoElement.play(); 
                 canvas.style.display = 'block';
                 document.getElementById('cameraButton').textContent = "Webcam動作中";
                 if(currentMode === 4) setMode(3);
-            } catch (err) { alert("カメラエラー: " + err); }
+            } catch (err) { 
+                alert("カメラエラー: " + err + "\n※ローカルファイル(file://)で直接開いている場合は、Live Server等を使用してください。"); 
+            }
         }
 
         function handleFileSelect(event) {
