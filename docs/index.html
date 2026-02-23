@@ -57,7 +57,7 @@
 
         #status { font-size: 1.1rem; margin-bottom: 10px; color: #aaa; font-weight: bold; }
         #resolution-display { font-size: 0.9rem; color: #aaa; margin-bottom: 5px; min-height: 1.2em; }
-        #loading { color: #aaa; margin-bottom: 10px; display:none; }
+        #loading { color: #aaa; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -68,7 +68,7 @@
     <div id="resolution-display">Resolution: - x -</div>
 
     <canvas id="canvas"></canvas>
-    <video id="videoElement" playsinline controls style="display:none;"></video>
+    <video id="videoElement" autoplay playsinline muted style="display:none;"></video>
 
     <div>
         <button id="connectButton" class="btn-sys" style="background-color: #007bff;">① Bluetooth 接続</button>
@@ -124,14 +124,15 @@
         <button id="clearBtn" class="btn-clear">🗑️ クリア</button>
     </div>
 
-    <script async src="opencv.js"></script>
+    <script async src="https://docs.opencv.org/3.4.1/opencv.js"></script>
 
     <script>
         const HEADER_MANUAL = 0x01, HEADER_AUTO = 0x02, HEADER_PARAM = 0x03, HEADER_MANUAL2 = 0x04, DIR_STOP = 0;
-        const HEADER_VOLTAGE = 0x05; // 追加: 電圧確認用ヘッダ
+        const HEADER_VOLTAGE = 0x05; 
         let videoElement, canvas, ctx;
         let bleDevice, bleCharacteristic;
-        let cvReady = false;
+        let cv; // ★ cvReadyは使わず、以前のように cv 変数のみで管理します
+        
         let currentMode = 3, isSending = false, isVideoFileMode = false;
         let recordedData = [], isRecording = false, recordStartTime = 0;
         
@@ -139,17 +140,22 @@
         let pixelX=0, pixelY=0;
         let latestAngle=0, currentDirStr="";
 
-        // ★色のHSV閾値定義
-        const COLOR_CENTER_LOW = [20, 100, 100]; // 黄色 (中心)
+        const COLOR_CENTER_LOW = [20, 100, 100]; 
         const COLOR_CENTER_HIGH = [40, 255, 255];
-        
-        // ★変更: 赤色は0付近と180付近の2箇所に分かれるため、2つの帯域を定義します
-        const COLOR_FRONT_LOW1 = [0, 120, 70];   // 赤色 (前半: オレンジ寄り)
+        const COLOR_FRONT_LOW1 = [0, 120, 70];   
         const COLOR_FRONT_HIGH1 = [10, 255, 255];
-        const COLOR_FRONT_LOW2 = [165, 120, 70]; // 赤色 (後半: ピンク寄り)
+        const COLOR_FRONT_LOW2 = [165, 120, 70]; 
         const COLOR_FRONT_HIGH2 = [180, 255, 255];
 
-        function onOpenCvReady() { cvReady = true; document.getElementById('loading').style.display = 'none'; }
+        // ★変更点：以前の安定していたコードと全く同じ監視関数
+        function waitForOpenCV() {
+            if (window.cv && window.cv.Mat) {
+                cv = window.cv;
+                document.getElementById('loading').style.display = 'none';
+            } else {
+                setTimeout(waitForOpenCV, 500);
+            }
+        }
 
         window.onload = () => {
             videoElement = document.getElementById('videoElement');
@@ -173,20 +179,35 @@
 
             setupDpad();
             setMode(3); 
+            
+            // ★ロード監視スタート
+            waitForOpenCV();
             requestAnimationFrame(processLoop);
         };
 
         async function startWebcam() {
-            if (!cvReady) return;
+            // ★変更点：cv変数が空かどうかでチェック
+            if (!cv) {
+                alert("OpenCVのロードが終わっていません。画面上の「ロード中...」が消えてからもう一度押してください！");
+                return;
+            }
             try {
                 isVideoFileMode = false;
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
                 videoElement.srcObject = stream;
+                
+                // スマホ・PCブラウザ対策の属性
+                videoElement.setAttribute('autoplay', '');
+                videoElement.setAttribute('muted', '');
+                videoElement.setAttribute('playsinline', '');
+                
                 videoElement.play(); 
                 canvas.style.display = 'block';
                 document.getElementById('cameraButton').textContent = "Webcam動作中";
                 if(currentMode === 4) setMode(3);
-            } catch (err) { alert("カメラエラー: " + err); }
+            } catch (err) { 
+                alert("カメラエラー: " + err); 
+            }
         }
 
         function handleFileSelect(event) {
@@ -228,21 +249,18 @@
             canvasEl.style.borderColor = color;
         }
 
-        // ★変更: 赤色のような「2つの範囲」を持つ色にも対応した関数
         function findLargestColorCenter(hsvMat, lowColor1, highColor1, lowColor2=null, highColor2=null) {
             let mask = new cv.Mat();
             let low1 = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(lowColor1[0], lowColor1[1], lowColor1[2], 0));
             let high1 = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(highColor1[0], highColor1[1], highColor1[2], 255));
             cv.inRange(hsvMat, low1, high1, mask);
 
-            // 第2の範囲(赤の後半など)が指定されていれば、マスクを合成する
             if (lowColor2 && highColor2) {
                 let mask2 = new cv.Mat();
                 let low2 = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(lowColor2[0], lowColor2[1], lowColor2[2], 0));
                 let high2 = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(highColor2[0], highColor2[1], highColor2[2], 255));
                 cv.inRange(hsvMat, low2, high2, mask2);
                 
-                // 2つのマスクを足し合わせる(OR演算)
                 cv.bitwise_or(mask, mask2, mask);
                 
                 mask2.delete(); low2.delete(); high2.delete();
@@ -269,7 +287,8 @@
 
         function processLoop() {
             try {
-                if (!cvReady) { requestAnimationFrame(processLoop); return; }
+                // ★変更点：cv変数が空かどうかでチェック
+                if (!cv) { requestAnimationFrame(processLoop); return; }
 
                 let vw = videoElement.videoWidth;
                 let vh = videoElement.videoHeight;
@@ -292,16 +311,12 @@
                 cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
                 cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
 
-                // 中心(黄色)を探す
                 let centerPos = findLargestColorCenter(hsv, COLOR_CENTER_LOW, COLOR_CENTER_HIGH);
-                
-                // ★変更: 前方(赤色)を探す (2つの範囲を渡す)
                 let frontPos = findLargestColorCenter(hsv, COLOR_FRONT_LOW1, COLOR_FRONT_HIGH1, COLOR_FRONT_LOW2, COLOR_FRONT_HIGH2);
 
                 let hasAngle = false;
 
                 if (centerPos) {
-                    // 中心座標の計算
                     normX = Math.round((centerPos.x / canvas.width) * 255);
                     normY = Math.round((centerPos.y / canvas.height) * 255);
 
@@ -312,13 +327,10 @@
                         pixelX = normX; pixelY = normY;
                     }
 
-                    // 黄色マーカーを描画
                     cv.circle(src, new cv.Point(centerPos.x, centerPos.y), 6, [255, 255, 0, 255], -1);
                     cv.circle(src, new cv.Point(centerPos.x, centerPos.y), 8, [0, 0, 0, 255], 2);
 
-                    // 赤色マーカーが見つかった場合、角度を計算
                     if (frontPos) {
-                        // ★変更: 描画色を赤色に変更
                         cv.circle(src, new cv.Point(frontPos.x, frontPos.y), 4, [255, 0, 0, 255], -1); 
 
                         let dx = frontPos.x - centerPos.x;
@@ -329,16 +341,13 @@
                         latestAngle = Math.round(deg);
                         hasAngle = true;
 
-                        // 矢印を描画
                         cv.arrowedLine(src, new cv.Point(centerPos.x, centerPos.y), new cv.Point(frontPos.x, frontPos.y), [0, 255, 0, 255], 2);
                     }
                     
-                    // 自動追尾モード(Mode 2)のBLE送信
                     if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
                         if (!isSending && Math.random() > 0.5) {
                             isSending = true;
                             
-                            // Y座標と角度を反転
                             let sendY = 255 - normY; 
                             let sendAngle = 360 - latestAngle; 
                             
@@ -498,7 +507,6 @@
             }
             try {
                 document.getElementById('voltage-display').textContent = "取得中...";
-                // コマンドヘッダ 0x05 のみを送信
                 await bleCharacteristic.writeValue(new Uint8Array([HEADER_VOLTAGE]));
             } catch (e) {
                 console.log("電圧要求エラー:", e);
@@ -506,31 +514,18 @@
             }
         }
 
-        // ▼▼ 追加: マイコンからのNotifyを受信する関数 ▼▼
         function handleReceiveData(event) {
             const value = event.target.value;
             let data = new Uint8Array(value.buffer);
             
             if (data.length > 0) {
-                // 受信データの1バイト目が 0x05 (HEADER_VOLTAGE) だった場合
                 if (data[0] === HEADER_VOLTAGE && data.length >= 3) {
-                    // 例: [0x05, 整数部, 小数部] で送られてくると仮定
-                    // 例: 3.7V なら [0x05, 3, 7]
                     let volts_int = data[1];
                     let volts_dec = data[2];
                     document.getElementById('voltage-display').textContent = `${volts_int}.${volts_dec} V`;
                 }
             }
         }
-        // // 文字列で受信する場合の受信関数
-        // function handleReceiveData(event) {
-        //     const value = event.target.value;
-        //     const decoder = new TextDecoder('utf-8');
-        //     const str = decoder.decode(value); // 例: "3.72"
-            
-        //     // 簡易的に受信した文字列をそのまま表示
-        //     document.getElementById('voltage-display').textContent = `${str} V`;
-        // }
     </script>
 </body>
 </html>
