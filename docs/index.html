@@ -132,6 +132,7 @@
         let videoElement, canvas, ctx;
         let bleDevice, bleCharacteristic;
         let cvReady = false;
+        let cv;
         let currentMode = 3, isSending = false, isVideoFileMode = false;
         let recordedData = [], isRecording = false, recordStartTime = 0;
         
@@ -151,6 +152,7 @@
 
         function waitForOpenCV() {
             if (window.cv && window.cv.Mat) {
+                cv = window.cv;
                 cvReady = true; 
                 document.getElementById('loading').style.display = 'none';
             } else {
