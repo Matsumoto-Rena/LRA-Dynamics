@@ -124,6 +124,20 @@
         <button id="clearBtn" class="btn-clear">🗑️ クリア</button>
     </div>
 
+    <script>
+        // ロード状態を管理するグローバル変数
+        window.cvReady = false;
+        
+        // OpenCV(WASM)の準備が完全に終わった時に自動で呼ばれる関数
+        var Module = {
+            onRuntimeInitialized: function() {
+                window.cvReady = true;
+                document.getElementById('loading').style.display = 'none';
+                console.log("✅ OpenCV.js 準備完了！");
+            }
+        };
+    </script>
+    
     <script async src="https://cdnjs.cloudflare.com/ajax/libs/opencv.js/4.8.0/opencv.js"></script>
 
     <script>
@@ -131,7 +145,6 @@
         const HEADER_VOLTAGE = 0x05; 
         let videoElement, canvas, ctx;
         let bleDevice, bleCharacteristic;
-        let cv; // ★ cvReadyは廃止し、以前と同じく cv 変数のみで判定します
         let currentMode = 3, isSending = false, isVideoFileMode = false;
         let recordedData = [], isRecording = false, recordStartTime = 0;
         
@@ -145,16 +158,6 @@
         const COLOR_FRONT_HIGH1 = [10, 255, 255];
         const COLOR_FRONT_LOW2 = [165, 120, 70]; 
         const COLOR_FRONT_HIGH2 = [180, 255, 255];
-
-        // ★前と全く同じ方式の読み込み監視関数
-        function waitForOpenCV() {
-            if (window.cv && window.cv.Mat) {
-                cv = window.cv;
-                document.getElementById('loading').textContent = "OpenCV.js 準備完了！";
-            } else {
-                setTimeout(waitForOpenCV, 500);
-            }
-        }
 
         window.onload = () => {
             videoElement = document.getElementById('videoElement');
@@ -179,13 +182,14 @@
             setupDpad();
             setMode(3);
             
-            waitForOpenCV(); // 監視スタート
+            // ループ開始（内部で window.cvReady を監視し続けます）
+            requestAnimationFrame(processLoop);
         };
 
         async function startWebcam() {
-            if (!cv) { 
-                alert("OpenCVロード中"); 
-                return; 
+            if (!window.cvReady) {
+                alert("OpenCVのロードが終わっていません。画面上の「ロード中...」が消えてからもう一度押してください！");
+                return;
             }
             try {
                 isVideoFileMode = false;
@@ -200,10 +204,8 @@
                 canvas.style.display = 'block';
                 document.getElementById('cameraButton').textContent = "Webcam動作中";
                 if(currentMode === 4) setMode(3);
-                
-                requestAnimationFrame(processLoop);
             } catch (err) { 
-                alert("カメラエラー: " + err); 
+                alert("カメラエラー: " + err + "\n※ローカルファイル(file://)で直接開いている場合は、Live Server等を使用してください。"); 
             }
         }
 
@@ -217,8 +219,6 @@
             canvas.style.display = 'block';
             document.getElementById('cameraButton').textContent = "動画ファイルモード";
             setMode(4); recordedData = []; updateLogCount();
-            
-            requestAnimationFrame(processLoop);
         }
 
         function setMode(mode) {
@@ -286,7 +286,8 @@
 
         function processLoop() {
             try {
-                if (!cv) { requestAnimationFrame(processLoop); return; }
+                // ロードが終わるまでここで待機し続けます
+                if (!window.cvReady) { requestAnimationFrame(processLoop); return; }
 
                 let vw = videoElement.videoWidth;
                 let vh = videoElement.videoHeight;
