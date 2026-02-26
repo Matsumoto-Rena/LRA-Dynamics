@@ -230,12 +230,12 @@ function processLoop() {
                 cv.arrowedLine(src, new cv.Point(centerPos.x, centerPos.y), new cv.Point(frontPos.x, frontPos.y), [0, 255, 0, 255], 2);
             }
 
-            if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
+ if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
                 if (targetX === -1 || targetY === -1) {
                     // 目標なし
                 } 
                 else if (!isSending) {
-                    isSending = true;
+
                     let commandId = 0; // 0:停止
 
                     // 1. ロボットからターゲットへのベクトル (dx, dy)
@@ -245,50 +245,40 @@ function processLoop() {
                     // 2. 角度をラジアンに変換
                     let rad = latestAngle * (Math.PI / 180);
 
-                    // 3. 座標変換（ここがポイント！）
-                    // ロボットにとっての「前方成分(relFront)」と「右成分(relRight)」を計算します
-                    // 公式: 
-                    // 前方 = dx * cos(θ) + dy * sin(θ)
-                    // 右方 = -dx * sin(θ) + dy * cos(θ)
-                    
-                    // ※注: OpenCV/Canvas座標系(Yが下)に合わせると、この計算で
-                    // 「ロボットの進行方向」と「その右側」への距離が出せます
+                    // 3. 座標変換
                     let relFront = dx * Math.cos(rad) + dy * Math.sin(rad);
                     let relRight = -dx * Math.sin(rad) + dy * Math.cos(rad);
 
                     // 4. 指令の決定
-                    // 許容範囲内なら停止
                     if (Math.abs(relFront) < TARGET_TOLERANCE && Math.abs(relRight) < TARGET_TOLERANCE) {
                         commandId = 0; 
                     }
-                    // 前後の距離の方が遠い場合 → 前後に動く
                     else if (Math.abs(relFront) > Math.abs(relRight)) {
-                        if (relFront > 0) commandId = 1; // 前方 (Forward)
-                        else commandId = 2;              // 後方 (Backward)
+                        if (relFront > 0) commandId = 1; // 前方
+                        else commandId = 2;              // 後方
                     }
-                    // 左右の距離の方が遠い場合 → 左右に動く
                     else {
-                        if (relRight > 0) commandId = 3;      // 右へ (Right)
-                        else commandId = 4;                   // 左へ (Left)
+                        if (relRight > 0) commandId = 3; // 右へ
+                        else commandId = 4;              // 左へ
                     }
 
                     // コマンド送信
                     const now = Date.now();
 
-                    if (!isSending && (commandId !== lastCommandId || now - lastSendTime > 500)) {
+                    // ✅ ここで初めて判定する（!isSending は親の else if で確認済みなので外してOK）
+                    if (commandId !== lastCommandId || now - lastSendTime > 500) {
                         
-                        isSending = true;
+                        isSending = true; // ✅ 送信するときだけロックをかける
                         
                         bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, commandId, 0]))
                             .then(() => {
-                                lastCommandId = commandId; // 送った命令を記憶
-                                lastSendTime = now;        // 送った時間を記憶
-                                isSending = false;
+                                lastCommandId = commandId;
+                                lastSendTime = now;
+                                isSending = false; // ✅ 送信成功したらロック解除
                             })
                             .catch((error) => {
                                 console.error("送信エラー:", error);
-                                isSending = false;
-                                // エラーが出たら再接続を促すなどの処理を入れてもいい
+                                isSending = false; // ✅ エラー時もロック解除
                             });
                     }
                 }
