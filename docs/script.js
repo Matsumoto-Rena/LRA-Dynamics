@@ -7,6 +7,8 @@ let cv; // cvReadyは使わず、cv変数の有無で管理
 let currentMode = 3, isSending = false, isVideoFileMode = false;
 let recordedData = [], isRecording = false, recordStartTime = 0;
 
+let targetX = -1, targetY = -1; // 目標地点（-1なら設定なし）
+const TARGET_TOLERANCE = 40;    // 目標にどれくらい近づけばOKとするか（ピクセル）
 let normX=0, normY=0;
 let pixelX=0, pixelY=0;
 let latestAngle=0, currentDirStr="";
@@ -31,6 +33,22 @@ window.onload = () => {
     videoElement = document.getElementById('videoElement');
     canvas = document.getElementById('canvas');
     ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        // キャンバス内のクリック位置を計算
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // 実際の解像度(640x480)に合わせて座標変換
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        targetX = Math.round(x * scaleX);
+        targetY = Math.round(y * scaleY);
+        
+        console.log(`目標セット: ${targetX}, ${targetY}`);
+    });
 
     document.getElementById('cameraButton').onclick = startWebcam;
     document.getElementById('connectButton').onclick = connectBluetooth;
@@ -209,44 +227,54 @@ function processLoop() {
 
                 cv.arrowedLine(src, new cv.Point(centerPos.x, centerPos.y), new cv.Point(frontPos.x, frontPos.y), [0, 255, 0, 255], 2);
             }
-            
-if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
+
+            if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
+                // 目標が設定されていない場合は動かない
+                if (targetX === -1 || targetY === -1) {
+                    // 画面に「クリックして目標設定」と出すなどの処理を入れても良い
+                } 
                 // 送信中でなければ実行
-                if (!isSending) {
+                else if (!isSending) {
                     isSending = true;
 
-                    // 1. 中心座標と許容範囲（デッドゾーン）の設定
-                    const centerX = canvas.width / 2;  // 320
-                    const centerY = canvas.height / 2; // 240
-                    const threshold = 60; // 中心から±60px以内なら「停止」とみなす
+                    let commandId = 0; // 0:停止
 
-                    let commandId = 0; // 0:停止, 1:前, 2:後, 3:右, 4:左
+                    // ロボットの現在地 (pixelX, pixelY) と 目標 (targetX, targetY) の差分
+                    let diffX = pixelX - targetX;
+                    let diffY = pixelY - targetY;
 
-                    // 2. どっちに動くか判定（PC側で計算）
-                    // X軸の判定（左右）
-                    if (pixelX < centerX - threshold) {
-                        commandId = 4; // 左 (Left)
-                    } else if (pixelX > centerX + threshold) {
-                        commandId = 3; // 右 (Right)
-                    } 
-                    // Y軸の判定（前後）※左右が合っている時だけ前後を合わせる場合
-                    else if (pixelY < centerY - threshold) {
-                        commandId = 1; // 前 (Up) ※画面上方向
-                    } else if (pixelY > centerY + threshold) {
-                        commandId = 2; // 後 (Down) ※画面下方向
-                    } else {
-                        commandId = 0; // 範囲内なので停止
+                    // 距離が許容範囲内なら停止（到着！）
+                    if (Math.abs(diffX) < TARGET_TOLERANCE && Math.abs(diffY) < TARGET_TOLERANCE) {
+                        commandId = 0; // 停止
+                        // 到着したらターゲットをクリアしてもいいし、維持してもいい
+                        // targetX = -1; targetY = -1; 
+                    }
+                    // X軸の調整（左右）を優先する場合
+                    else if (Math.abs(diffX) > TARGET_TOLERANCE) {
+                        if (diffX > 0) commandId = 4; // ロボットが右にいる → 左へ (Left)
+                        else commandId = 3;           // ロボットが左にいる → 右へ (Right)
+                    }
+                    // Y軸の調整（前後）
+                    else if (Math.abs(diffY) > TARGET_TOLERANCE) {
+                        if (diffY > 0) commandId = 1; // ロボットが下にいる → 前(上)へ (Up)
+                        else commandId = 2;           // ロボットが上にいる → 後(下)へ (Down)
                     }
 
-                    // 3. 命令を送信（Mode 3の手動操作と同じコマンドを送る）
-                    // HEADER_MANUAL (0x01) を使用します
+                    // コマンド送信
                     bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, commandId, 0]))
                         .then(() => {
-                            // 連続送信しすぎないように少し待つ（重要）
                             setTimeout(() => { isSending = false; }, 100); 
                         })
                         .catch(() => isSending = false);
                 }
+            }
+
+            // ★画面描画の追加（目標地点に×印を描画）
+            if (targetX !== -1) {
+                // 緑色のクロスを描画
+                cv.line(src, new cv.Point(targetX - 10, targetY - 10), new cv.Point(targetX + 10, targetY + 10), [0, 255, 0, 255], 2);
+                cv.line(src, new cv.Point(targetX + 10, targetY - 10), new cv.Point(targetX - 10, targetY + 10), [0, 255, 0, 255], 2);
+                cv.putText(src, "TARGET", new cv.Point(targetX + 15, targetY), cv.FONT_HERSHEY_SIMPLEX, 0.5, [0, 255, 0, 255], 1);
             }
         }
 
