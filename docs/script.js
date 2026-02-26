@@ -5,6 +5,8 @@ let bleDevice, bleCharacteristic;
 let cv; // cvReadyは使わず、cv変数の有無で管理
 
 let currentMode = 3, isSending = false, isVideoFileMode = false;
+let lastCommandId = -1; // 直前に送ったコマンドを記憶する変数
+let lastSendTime = 0;   // 最後に送信した時間
 let recordedData = [], isRecording = false, recordStartTime = 0;
 
 let targetX = -1, targetY = -1; // 目標地点の絶対座標（-1なら設定なし）
@@ -228,7 +230,7 @@ function processLoop() {
                 cv.arrowedLine(src, new cv.Point(centerPos.x, centerPos.y), new cv.Point(frontPos.x, frontPos.y), [0, 255, 0, 255], 2);
             }
 
-if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
+            if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
                 if (targetX === -1 || targetY === -1) {
                     // 目標なし
                 } 
@@ -271,11 +273,24 @@ if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
                     }
 
                     // コマンド送信
-                    bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, commandId, 0]))
-                        .then(() => {
-                            setTimeout(() => { isSending = false; }, 100); 
-                        })
-                        .catch(() => isSending = false);
+                    const now = Date.now();
+
+                    if (!isSending && (commandId !== lastCommandId || now - lastSendTime > 500)) {
+                        
+                        isSending = true;
+                        
+                        bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, commandId, 0]))
+                            .then(() => {
+                                lastCommandId = commandId; // 送った命令を記憶
+                                lastSendTime = now;        // 送った時間を記憶
+                                isSending = false;
+                            })
+                            .catch((error) => {
+                                console.error("送信エラー:", error);
+                                isSending = false;
+                                // エラーが出たら再接続を促すなどの処理を入れてもいい
+                            });
+                    }
                 }
             }
 
