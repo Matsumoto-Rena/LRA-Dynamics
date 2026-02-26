@@ -306,7 +306,7 @@ function processLoop() {
         let infoText = "";
         if (currentMode === 1 && isRecording) {
             let t = Date.now() - recordStartTime;
-            recordedData.push({ t: t, in: currentDirStr, x: pixelX, y: pixelY, oo: latestAngle });
+            recordedData.push({ t: t, in: currentDirStr, x: pixelX, y: pixelY, angle: latestAngle });
             infoText = "REC";
         } else if (currentMode === 4 && !videoElement.paused) {
             let t = Math.round(videoElement.currentTime * 1000);
