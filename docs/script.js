@@ -210,18 +210,42 @@ function processLoop() {
                 cv.arrowedLine(src, new cv.Point(centerPos.x, centerPos.y), new cv.Point(frontPos.x, frontPos.y), [0, 255, 0, 255], 2);
             }
             
-            if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
-                if (!isSending && Math.random() > 0.5) {
+if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
+                // 送信中でなければ実行
+                if (!isSending) {
                     isSending = true;
-                    
-                    let sendY = 255 - normY; 
-                    let sendAngle = 360 - latestAngle; 
-                    
-                    let angH = (sendAngle >> 8) & 0xFF;
-                    let angL = sendAngle & 0xFF;
-                    
-                    bleCharacteristic.writeValue(new Uint8Array([HEADER_AUTO, normX, sendY, angH, angL]))
-                        .then(() => isSending = false).catch(() => isSending = false);
+
+                    // 1. 中心座標と許容範囲（デッドゾーン）の設定
+                    const centerX = canvas.width / 2;  // 320
+                    const centerY = canvas.height / 2; // 240
+                    const threshold = 60; // 中心から±60px以内なら「停止」とみなす
+
+                    let commandId = 0; // 0:停止, 1:前, 2:後, 3:右, 4:左
+
+                    // 2. どっちに動くか判定（PC側で計算）
+                    // X軸の判定（左右）
+                    if (pixelX < centerX - threshold) {
+                        commandId = 4; // 左 (Left)
+                    } else if (pixelX > centerX + threshold) {
+                        commandId = 3; // 右 (Right)
+                    } 
+                    // Y軸の判定（前後）※左右が合っている時だけ前後を合わせる場合
+                    else if (pixelY < centerY - threshold) {
+                        commandId = 1; // 前 (Up) ※画面上方向
+                    } else if (pixelY > centerY + threshold) {
+                        commandId = 2; // 後 (Down) ※画面下方向
+                    } else {
+                        commandId = 0; // 範囲内なので停止
+                    }
+
+                    // 3. 命令を送信（Mode 3の手動操作と同じコマンドを送る）
+                    // HEADER_MANUAL (0x01) を使用します
+                    bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, commandId, 0]))
+                        .then(() => {
+                            // 連続送信しすぎないように少し待つ（重要）
+                            setTimeout(() => { isSending = false; }, 100); 
+                        })
+                        .catch(() => isSending = false);
                 }
             }
         }
