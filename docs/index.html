@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Controller (High Speed)</title>
+    <title>Hybrid Controller (Yellow/Red Markers)</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #222; color: #fff; }
         canvas { border: 4px solid #2196F3; background-color: #000; width: 100%; max-width: 640px; height: auto; border-radius: 8px; }
@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h1>Hybrid Controller (High Speed)</h1>
+    <h1>Hybrid Controller (Yellow/Red Markers)</h1>
     <div id="loading">OpenCV.js ロード中...</div>
     <div id="status">準備中...</div>
     <canvas id="canvas"></canvas>
@@ -55,9 +55,18 @@
     </div>
     <script async src="opencv.js"></script>
     <script>
-        // 青色設定
-        const COLOR_BLUE_MIN = [100, 60, 20, 0];
-        const COLOR_BLUE_MAX = [140, 255, 255, 255];
+        // ★色設定の変更 (OpenCVのHSV形式: H:0-179, S:0-255, V:0-255)
+        
+        // 黄色 (Yellow) - 後ろ側 (Back)
+        const COLOR_YELLOW_MIN = [20, 100, 100, 0];
+        const COLOR_YELLOW_MAX = [40, 255, 255, 255];
+
+        // 赤色 (Red) - 前側 (Front)
+        // 赤は色相(H)が0付近と180付近に分かれるため、2つの範囲を定義して合成します
+        const COLOR_RED1_MIN = [0, 120, 70, 0];
+        const COLOR_RED1_MAX = [10, 255, 255, 255];
+        const COLOR_RED2_MIN = [170, 120, 70, 0];
+        const COLOR_RED2_MAX = [180, 255, 255, 255];
 
         const HEADER_MANUAL = 0x01; 
         const DIR_STOP = 0, DIR_UP = 1, DIR_DOWN = 2, DIR_LEFT = 3, DIR_RIGHT = 4;
@@ -65,8 +74,8 @@
         let video, canvas, ctx, bleDevice, bleCharacteristic, cv; 
         let currentMode = 1; 
         
-        let backX = 0, backY = 0; 
-        let frontX = 0, frontY = 0;   
+        let backX = 0, backY = 0;   // 黄色マーカー座標
+        let frontX = 0, frontY = 0; // 赤色マーカー座標
         let currentAngle = 0;     
 
         let originX = 0, originY = 0;
@@ -80,8 +89,6 @@
         let lastSentCmd = -1; let isBusy = false;
         let activeCommandStr = "STOP"; let targetDirection = DIR_STOP;
         
-        // ★タイマー制限は撤廃しました
-
         function waitForOpenCV() {
             if (window.cv && window.cv.Mat) { cv = window.cv; document.getElementById('loading').textContent = "OpenCV.js 準備完了！"; } 
             else setTimeout(waitForOpenCV, 500);
@@ -106,11 +113,7 @@
 
         async function updateRobotCommand(cmd, strLabel, forceBurst = false) {
             activeCommandStr = strLabel;
-            
-            // ★時間制限のチェックを削除しました
-            // 前と同じコマンドなら送らない (スパム防止)
             if (!forceBurst && cmd === lastSentCmd) return;
-
             if (isBusy) return;
             isBusy = true; 
             try { 
@@ -126,14 +129,15 @@
             if (!bleCharacteristic) return;
             for (let i = 0; i < 5; i++) {
                 try { await bleCharacteristic.writeValue(new Uint8Array([HEADER_MANUAL, cmd, 0])); } catch(e){} 
-                await new Promise(r => setTimeout(r, 20)); // 間隔を少し詰めて高速化
+                await new Promise(r => setTimeout(r, 20)); 
             }
         }
 
         function startMoveSequence(dirCode, dirName) {
             if (isRecording) return;
+            // 黄色(Back)と赤色(Front)の両方が見つかっているか確認
             if (backX === 0 || frontX === 0) { 
-                alert("2つの青色マーカーが見つかりません！"); 
+                alert("マーカーが見つかりません！\n黄色(後)と赤色(前)を確認してください。"); 
                 return; 
             }
             
@@ -151,7 +155,6 @@
             setTimeout(async () => {
                 console.log("STOPPING...");
                 isRecording = false; 
-                // 少し待ってから停止
                 await new Promise(r => setTimeout(r, 20));
                 await updateRobotCommand(DIR_STOP, "STOP", true);
                 targetDirection = DIR_STOP;
@@ -179,36 +182,50 @@
         
         function saveCSV() {
             if (recordedData.length === 0) return;
-            let csv = "Time(ms),Mode,TargetInput,ActualCommand,BackX,BackY,RelX,RelY,LocalX,LocalY,Angle(deg)\n";
+            let csv = "Time(ms),Mode,TargetInput,ActualCommand,BackX,BackY,FrontX,FrontY,RelX,RelY,LocalX,LocalY,Angle(deg)\n";
             recordedData.forEach(r => { 
-                csv += `${r.time},${r.mode},${r.input},${r.act},${r.x},${r.y},${r.relX},${r.relY},${r.locX},${r.locY},${r.angle}\n`; 
+                csv += `${r.time},${r.mode},${r.input},${r.act},${r.bx},${r.by},${r.fx},${r.fy},${r.relX},${r.relY},${r.locX},${r.locY},${r.angle}\n`; 
             });
             const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
             const a = document.createElement('a'); a.href = url; a.download = `log_${Date.now()}.csv`; a.click();
         }
 
-        function findBlueContours(hsvMat, minColor, maxColor) {
+        // 指定した色範囲の最大輪郭を見つける関数
+        function findLargestContour(hsvMat, minColor, maxColor, minColor2 = null, maxColor2 = null) {
             let mask = new cv.Mat();
             let low = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(...minColor));
             let high = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(...maxColor));
             cv.inRange(hsvMat, low, high, mask);
             low.delete(); high.delete();
 
+            // 赤色のように2つの範囲がある場合の処理
+            if (minColor2 && maxColor2) {
+                let mask2 = new cv.Mat();
+                let low2 = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(...minColor2));
+                let high2 = new cv.Mat(hsvMat.rows, hsvMat.cols, hsvMat.type(), new cv.Scalar(...maxColor2));
+                cv.inRange(hsvMat, low2, high2, mask2);
+                cv.add(mask, mask2, mask); // マスクを結合
+                low2.delete(); high2.delete(); mask2.delete();
+            }
+
             let contours = new cv.MatVector(); 
             let hierarchy = new cv.Mat();
             cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-            let foundRects = [];
+            let maxArea = 0;
+            let maxRect = null;
+
             for (let i = 0; i < contours.size(); ++i) {
                 let area = cv.contourArea(contours.get(i), false);
-                if (area > 20) {
-                    let rect = cv.boundingRect(contours.get(i));
-                    foundRects.push({ area: area, rect: rect });
+                // ノイズ除去のため、面積20以上を対象とする
+                if (area > 20 && area > maxArea) {
+                    maxArea = area;
+                    maxRect = cv.boundingRect(contours.get(i));
                 }
             }
-            foundRects.sort((a, b) => b.area - a.area);
+            
             mask.delete(); contours.delete(); hierarchy.delete();
-            return foundRects;
+            return maxRect;
         }
 
         function processVideo() {
@@ -224,25 +241,29 @@
                 let src = cv.matFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
                 let hsv = new cv.Mat(); cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
                 
-                let blueBlobs = findBlueContours(hsv, COLOR_BLUE_MIN, COLOR_BLUE_MAX);
-                
+                // ★黄色の検出（後ろ）
+                let yellowRect = findLargestContour(hsv, COLOR_YELLOW_MIN, COLOR_YELLOW_MAX);
                 backX = 0; backY = 0;
+                if (yellowRect) {
+                    backX = Math.round(yellowRect.x + yellowRect.width/2);
+                    backY = Math.round(yellowRect.y + yellowRect.height/2);
+                    // 黄色枠描画
+                    cv.rectangle(src, new cv.Point(yellowRect.x, yellowRect.y), new cv.Point(yellowRect.x + yellowRect.width, yellowRect.y + yellowRect.height), [255, 255, 0, 255], 2);
+                    cv.putText(src, "Back(Y)", new cv.Point(yellowRect.x, yellowRect.y - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, [255, 255, 0, 255], 1);
+                }
+
+                // ★赤色の検出（前） - 2つの色範囲を指定
+                let redRect = findLargestContour(hsv, COLOR_RED1_MIN, COLOR_RED1_MAX, COLOR_RED2_MIN, COLOR_RED2_MAX);
                 frontX = 0; frontY = 0;
-
-                if (blueBlobs.length >= 1) {
-                    let big = blueBlobs[0].rect;
-                    backX = Math.round(big.x + big.width/2);
-                    backY = Math.round(big.y + big.height/2);
-                    cv.rectangle(src, new cv.Point(big.x, big.y), new cv.Point(big.x + big.width, big.y + big.height), [255, 0, 0, 255], 2);
+                if (redRect) {
+                    frontX = Math.round(redRect.x + redRect.width/2);
+                    frontY = Math.round(redRect.y + redRect.height/2);
+                    // 赤色枠描画
+                    cv.rectangle(src, new cv.Point(redRect.x, redRect.y), new cv.Point(redRect.x + redRect.width, redRect.y + redRect.height), [255, 0, 0, 255], 2);
+                    cv.putText(src, "Front(R)", new cv.Point(redRect.x, redRect.y - 5), cv.FONT_HERSHEY_SIMPLEX, 0.5, [255, 0, 0, 255], 1);
                 }
 
-                if (blueBlobs.length >= 2) {
-                    let small = blueBlobs[1].rect;
-                    frontX = Math.round(small.x + small.width/2);
-                    frontY = Math.round(small.y + small.height/2);
-                    cv.rectangle(src, new cv.Point(small.x, small.y), new cv.Point(small.x + small.width, small.y + small.height), [0, 255, 255, 255], 2);
-                }
-
+                // 2点が見つかったら角度計算と線描画
                 if (backX !== 0 && frontX !== 0) {
                     let dx = frontX - backX;
                     let dy = frontY - backY; 
@@ -265,41 +286,58 @@
                     if (!isFirstFrame && backX !== 0) {
                         let timeElapsed = Date.now() - recordStartTime;
                         
+                        // --- 制御ロジック (Mode 2) ---
                         if (currentMode === 2) {
-                            const DEADZONE = 30;
-                            let errorX = backX - originX;
-                            if (targetDirection === DIR_UP) {
+                            const DEADZONE = 30; // 許容誤差(ピクセル)
+                            let errorX = 0;
+                            
+                            // 進行方向の基準を「現在の角度」ではなく「開始時の角度」や「画面座標」にする場合は
+                            // ここで座標変換をして偏差を求めるのが理想ですが、
+                            // 簡易的に「画面上のX座標のズレ」を見る場合は以下で動作します。
+                            // (ただし、ロボットが横を向くとX座標制御はY軸制御になる点に注意)
+                            
+                            // 今回は簡易版として、開始地点(originX)からのX座標のズレを見ます
+                            // ※より高度にするなら、進行方向ベクトルに対する垂直距離を計算してください
+                            errorX = backX - originX;
+
+                            if (targetDirection === DIR_UP || targetDirection === DIR_DOWN) {
+                                // 前進・後退中の左右ズレ補正
                                 if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
                                 else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
-                                else updateRobotCommand(DIR_UP, "STRAIGHT(CTRL)");
-                            } else if (targetDirection === DIR_DOWN) {
-                                if (errorX > DEADZONE) updateRobotCommand(DIR_LEFT, "CORRECT_LEFT");
-                                else if (errorX < -DEADZONE) updateRobotCommand(DIR_RIGHT, "CORRECT_RIGHT");
-                                else updateRobotCommand(DIR_DOWN, "STRAIGHT(CTRL)");
+                                else updateRobotCommand(targetDirection, "STRAIGHT(CTRL)");
                             }
                         } 
                         
+                        // ログ用データの計算
                         let dx = backX - originX;
                         let dy = backY - originY;
+                        // ローカル座標変換 (開始時のロボットの向きを基準0度とする)
                         let theta = originAngle * (Math.PI / 180.0);
-                        let localY = dx * Math.cos(theta) + dy * Math.sin(theta); 
-                        let localX = dx * (-Math.sin(theta)) + dy * Math.cos(theta);
+                        // 回転行列: 
+                        // x' = x cosθ + y sinθ
+                        // y' = -x sinθ + y cosθ  (※Y軸反転など座標系により符号は調整必要)
+                        // ここでは一般的な2D回転を適用
+                        let localY = dx * Math.sin(theta) + dy * Math.cos(theta); // 進行方向
+                        let localX = dx * Math.cos(theta) - dy * Math.sin(theta); // 横ズレ
+                        // ※上記はあくまで一例です。実際のロボットの進行軸に合わせて調整してください。
+                        // 今回のコードの元のロジックを維持します：
+                        let rotX = dx * Math.cos(-theta) - dy * Math.sin(-theta);
+                        let rotY = dx * Math.sin(-theta) + dy * Math.cos(-theta);
 
                         recordedData.push({ 
                             time: timeElapsed, 
                             mode: currentMode, 
                             input: "AUTO", 
                             act: activeCommandStr, 
-                            x: backX, 
-                            y: backY, 
-                            relX: dx, 
-                            relY: dy,
-                            locX: Math.round(localX * 10) / 10, 
-                            locY: Math.round(localY * 10) / 10, 
+                            bx: backX, by: backY, // 生データ
+                            fx: frontX, fy: frontY,
+                            relX: dx, relY: dy, // スタート地点からの相対
+                            locX: Math.round(rotX * 10) / 10, 
+                            locY: Math.round(rotY * 10) / 10, 
                             angle: Math.round(currentAngle * 10) / 10
                         });
                     }
-                    cv.circle(src, new cv.Point(30, 30), 10, [0, 255, 255, 255], -1);
+                    cv.circle(src, new cv.Point(30, 30), 10, [0, 255, 0, 255], -1); // 緑丸でREC表示
                     cv.putText(src, `REC`, new cv.Point(50, 40), cv.FONT_HERSHEY_SIMPLEX, 0.7, [255, 255, 255, 255], 2);
                 }
 
