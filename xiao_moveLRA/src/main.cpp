@@ -72,9 +72,9 @@ void move(int res, int repeatCount, bool isDir){
   for(int i = 0; i < repeatCount; i++){
 
     if(isDir){
-      digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
-    }else{
       digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
+    }else{
+      digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
     }
     for(uint8_t k=0; k<res; k++){
       dac1.setVoltage(4095 * 1.0 * fabs(sin(k * 2 * 3.14 / res / 2)), false, 800000);
@@ -85,9 +85,9 @@ void move(int res, int repeatCount, bool isDir){
   if(checkStop()) return;
 
   if(isDir){
-    digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
-  }else{
     digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
+  }else{
+    digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
   }
   for(uint8_t k=0; k<res; k++){
     dac1.setVoltage(4095 * 1.0 * fabs(sin(k * 2 * 3.14 / res / 2)), false, 800000);
