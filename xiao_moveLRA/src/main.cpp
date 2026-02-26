@@ -21,10 +21,10 @@ int advanceDir = 0;      // 自動モードでの進行方向(0:右,1:前,2:左,
 
 // --- パラメータ変数 ---
 // 初期値を設定
-int paramRes1 = 5;
-int paramRep1 = 4;
-int paramRes2 = 10;
-int paramRep2 = 4;
+int paramRes1 = 19;
+int paramRep1 = 3;
+int paramRes2 = 30;
+int paramRep2 = 5;
 int loopCount = 200;
 int normX = 0;
 int normY = 0;
@@ -72,9 +72,9 @@ void move(int res, int repeatCount, bool isDir){
   for(int i = 0; i < repeatCount; i++){
 
     if(isDir){
-      digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
-    }else{
       digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
+    }else{
+      digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
     }
     for(uint8_t k=0; k<res; k++){
       dac1.setVoltage(4095 * 1.0 * fabs(sin(k * 2 * 3.14 / res / 2)), false, 800000);
@@ -85,9 +85,9 @@ void move(int res, int repeatCount, bool isDir){
   if(checkStop()) return;
 
   if(isDir){
-    digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
-  }else{
     digitalWrite(D2,LOW); digitalWrite(D3,HIGH);
+  }else{
+    digitalWrite(D2,HIGH); digitalWrite(D3,LOW);
   }
   for(uint8_t k=0; k<res; k++){
     dac1.setVoltage(4095 * 1.0 * fabs(sin(k * 2 * 3.14 / res / 2)), false, 800000);
@@ -198,7 +198,7 @@ void autoMove(int targetX, int targetY, int nowX, int nowY, int nowAngle){//nowX
       }
     }else if(advanceDir == 2){
       // 左進
-      digitalWrite(D10, HIGH); move2(paramRes2, paramRep2, false);
+      digitalWrite(D10, HIGH); move4(paramRes2, paramRep2, false);
       if((0 <= diffAngle && diffAngle < 90) || (270 <= diffAngle && diffAngle < 360)){
         isAdvancing = false;
       }
@@ -210,7 +210,7 @@ void autoMove(int targetX, int targetY, int nowX, int nowY, int nowAngle){//nowX
       }
     }else if(advanceDir == 0){
       // 右進
-      digitalWrite(D7, HIGH);  move2(paramRes2, paramRep2, true);
+      digitalWrite(D7, HIGH);  move4(paramRes2, paramRep2, true);
       if(90 <= diffAngle && diffAngle < 270){
         isAdvancing = false;
       }
