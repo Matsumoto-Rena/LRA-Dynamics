@@ -253,15 +253,15 @@ function processLoop() {
                         // 到着したらターゲットをクリアしてもいいし、維持してもいい
                         // targetX = -1; targetY = -1; 
                     }
-                    // X軸の調整（左右）を優先する場合
-                    else if (Math.abs(r_diffX) > TARGET_TOLERANCE) {
-                        if (r_diffX > 0) commandId = 4; // ロボットが右にいる → 左へ (Left)
-                        else commandId = 3;           // ロボットが左にいる → 右へ (Right)
-                    }
                     // Y軸の調整（前後）
                     else if (Math.abs(r_diffY) > TARGET_TOLERANCE) {
                         if (r_diffY > 0) commandId = 1; // ロボットが下にいる → 前(上)へ (Up)
                         else commandId = 2;           // ロボットが上にいる → 後(下)へ (Down)
+                    }
+                    // X軸の調整（左右）
+                    else if (Math.abs(r_diffX) > TARGET_TOLERANCE) {
+                        if (r_diffX > 0) commandId = 4; // ロボットが右にいる → 左へ (Left)
+                        else commandId = 3;           // ロボットが左にいる → 右へ (Right)
                     }
 
                     // コマンド送信
