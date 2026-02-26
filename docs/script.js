@@ -228,40 +228,46 @@ function processLoop() {
                 cv.arrowedLine(src, new cv.Point(centerPos.x, centerPos.y), new cv.Point(frontPos.x, frontPos.y), [0, 255, 0, 255], 2);
             }
 
-            if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
-                // 目標が設定されていない場合は動かない
+if (currentMode === 2 && bleCharacteristic && !isVideoFileMode) {
                 if (targetX === -1 || targetY === -1) {
-                    // 画面に「クリックして目標設定」と出すなどの処理を入れても良い
+                    // 目標なし
                 } 
-                // 送信中でなければ実行
                 else if (!isSending) {
                     isSending = true;
-
                     let commandId = 0; // 0:停止
 
-                    // ロボットの現在地 (pixelX, pixelY) と 目標 (targetX, targetY) の差分
-                    let diffX = pixelX - targetX;
-                    let diffY = pixelY - targetY;
+                    // 1. ロボットからターゲットへのベクトル (dx, dy)
+                    let dx = targetX - pixelX;
+                    let dy = targetY - pixelY;
 
-                    let r_diffX = Math.cos(latestAngle * Math.PI / 180) * diffX - Math.sin(latestAngle * Math.PI / 180) * diffY;
-                    let r_diffY = Math.sin(latestAngle * Math.PI / 180) * diffX + Math.cos(latestAngle * Math.PI / 180) * diffY;
+                    // 2. 角度をラジアンに変換
+                    let rad = latestAngle * (Math.PI / 180);
+
+                    // 3. 座標変換（ここがポイント！）
+                    // ロボットにとっての「前方成分(relFront)」と「右成分(relRight)」を計算します
+                    // 公式: 
+                    // 前方 = dx * cos(θ) + dy * sin(θ)
+                    // 右方 = -dx * sin(θ) + dy * cos(θ)
                     
+                    // ※注: OpenCV/Canvas座標系(Yが下)に合わせると、この計算で
+                    // 「ロボットの進行方向」と「その右側」への距離が出せます
+                    let relFront = dx * Math.cos(rad) + dy * Math.sin(rad);
+                    let relRight = -dx * Math.sin(rad) + dy * Math.cos(rad);
 
-                    // 距離が許容範囲内なら停止（到着！）
-                    if (Math.abs(r_diffX) < TARGET_TOLERANCE && Math.abs(r_diffY) < TARGET_TOLERANCE) {
-                        commandId = 0; // 停止
-                        // 到着したらターゲットをクリアしてもいいし、維持してもいい
-                        // targetX = -1; targetY = -1; 
+                    // 4. 指令の決定
+                    // 許容範囲内なら停止
+                    if (Math.abs(relFront) < TARGET_TOLERANCE && Math.abs(relRight) < TARGET_TOLERANCE) {
+                        commandId = 0; 
                     }
-                    // Y軸の調整（前後）
-                    else if (Math.abs(r_diffY) > TARGET_TOLERANCE) {
-                        if (r_diffY > 0) commandId = 1; // ロボットが下にいる → 前(上)へ (Up)
-                        else commandId = 2;           // ロボットが上にいる → 後(下)へ (Down)
+                    // 前後の距離の方が遠い場合 → 前後に動く
+                    else if (Math.abs(relFront) > Math.abs(relRight)) {
+                        if (relFront > 0) commandId = 1; // 前方 (Forward)
+                        else commandId = 2;              // 後方 (Backward)
                     }
-                    // X軸の調整（左右）
-                    else if (Math.abs(r_diffX) > TARGET_TOLERANCE) {
-                        if (r_diffX > 0) commandId = 4; // ロボットが右にいる → 左へ (Left)
-                        else commandId = 3;           // ロボットが左にいる → 右へ (Right)
+                    // 左右の距離の方が遠い場合 → 左右に動く
+                    else {
+                        if (relRight > 0) commandId = 3;      // 右へ (Right)
+                        else commandId = 4;                   // 左へ (Left)
                     }
 
                     // コマンド送信
