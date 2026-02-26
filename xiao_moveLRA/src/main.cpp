@@ -225,8 +225,8 @@ void runPatternStep(int id) {
   
   switch(id) {
     // move() や move2() にグローバル変数の paramResX, paramRepX を渡すようにしています
-    case 1: digitalWrite(D6, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, true);  break;
-    case 2: digitalWrite(D8, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, false); break;
+    case 1: digitalWrite(D6, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, false);  break;
+    case 2: digitalWrite(D8, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, true); break;
     case 3: digitalWrite(D7, HIGH);  move4(paramRes2, paramRep2, true);  break;
     case 4: digitalWrite(D10, HIGH); move4(paramRes2, paramRep2, false); break;
   }
@@ -239,8 +239,8 @@ void runPatternStep2(int id) {
   
   switch(id) {
     // move() や move2() にグローバル変数の paramResX, paramRepX を渡すようにしています
-    case 1: digitalWrite(D6, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, true);  break;
-    case 2: digitalWrite(D8, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, false); break;
+    case 1: digitalWrite(D6, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, false);  break;
+    case 2: digitalWrite(D8, HIGH);  for(uint8_t i=0; i < 10; i++) move(paramRes1, paramRep1, true); break;
     case 3: digitalWrite(D7, HIGH);  for(uint8_t i=0; i < 10; i++) move4(paramRes2, paramRep2, true); break;
     case 4: digitalWrite(D10, HIGH); for(uint8_t i=0; i < 10; i++) move4(paramRes2, paramRep2, false); break;
   }

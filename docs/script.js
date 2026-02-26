@@ -7,8 +7,8 @@ let cv; // cvReadyは使わず、cv変数の有無で管理
 let currentMode = 3, isSending = false, isVideoFileMode = false;
 let recordedData = [], isRecording = false, recordStartTime = 0;
 
-let targetX = -1, targetY = -1; // 目標地点（-1なら設定なし）
-const TARGET_TOLERANCE = 40;    // 目標にどれくらい近づけばOKとするか（ピクセル）
+let targetX = -1, targetY = -1; // 目標地点の絶対座標（-1なら設定なし）
+const TARGET_TOLERANCE = 20;    // 目標にどれくらい近づけばOKとするか（ピクセル）
 let normX=0, normY=0;
 let pixelX=0, pixelY=0;
 let latestAngle=0, currentDirStr="";
@@ -243,20 +243,24 @@ function processLoop() {
                     let diffX = pixelX - targetX;
                     let diffY = pixelY - targetY;
 
+                    let r_diffX = Math.cos(latestAngle * Math.PI / 180) * diffX - Math.sin(latestAngle * Math.PI / 180) * diffY;
+                    let r_diffY = Math.sin(latestAngle * Math.PI / 180) * diffX + Math.cos(latestAngle * Math.PI / 180) * diffY;
+                    
+
                     // 距離が許容範囲内なら停止（到着！）
-                    if (Math.abs(diffX) < TARGET_TOLERANCE && Math.abs(diffY) < TARGET_TOLERANCE) {
+                    if (Math.abs(r_diffX) < TARGET_TOLERANCE && Math.abs(r_diffY) < TARGET_TOLERANCE) {
                         commandId = 0; // 停止
                         // 到着したらターゲットをクリアしてもいいし、維持してもいい
                         // targetX = -1; targetY = -1; 
                     }
                     // X軸の調整（左右）を優先する場合
-                    else if (Math.abs(diffX) > TARGET_TOLERANCE) {
-                        if (diffX > 0) commandId = 4; // ロボットが右にいる → 左へ (Left)
+                    else if (Math.abs(r_diffX) > TARGET_TOLERANCE) {
+                        if (r_diffX > 0) commandId = 4; // ロボットが右にいる → 左へ (Left)
                         else commandId = 3;           // ロボットが左にいる → 右へ (Right)
                     }
                     // Y軸の調整（前後）
-                    else if (Math.abs(diffY) > TARGET_TOLERANCE) {
-                        if (diffY > 0) commandId = 1; // ロボットが下にいる → 前(上)へ (Up)
+                    else if (Math.abs(r_diffY) > TARGET_TOLERANCE) {
+                        if (r_diffY > 0) commandId = 1; // ロボットが下にいる → 前(上)へ (Up)
                         else commandId = 2;           // ロボットが上にいる → 後(下)へ (Down)
                     }
 
